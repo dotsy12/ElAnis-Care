@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: #ffffff;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+            .header h1 {
+                margin: 0;
+                font-size: 24px;
+            }
+
+        .content {
+            padding: 30px 40px;
+            color: #333;
+        }
+
+        .otp-box {
+            background-color: #f0f0f0;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .otp-code {
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            color: #2c3e50;
+        }
+
+        .footer {
+            background-color: #f9f9f9;
+            text-align: center;
+            padding: 20px;
+            font-size: 13px;
+            color: #999;
+        }
+
+        .note {
+            font-size: 14px;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 20px;
+            }
+
+            .otp-code {
+                font-size: 26px;
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Email Verification</h1>
+        </div>
+
+        <div class="content">
+            <p>Hi <strong>{Username}</strong>,</p>
+
+            <p>Thank you for signing up! To complete your registration, please use the following verification code:</p>
+
+            <div class="otp-box">
+                <div class="otp-code">{OtpCode}</div>
+            </div>
+
+            <p class="note">
+                This code will expire in 5 minutes.<br>
+                If you didn’t request this code, please ignore this message.
+            </p>
+        </div>
+
+        <div class="footer">
+            &copy; {CurrentYear} ElAnis Platform. All rights reserved.
+        </div>
+    </div>
+
+</body>
+</html>
