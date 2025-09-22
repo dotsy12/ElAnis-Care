@@ -19,7 +19,8 @@ namespace ElAnis.Entities.DTO.Admin
 		public decimal HourlyRate { get; set; }
 		public string IdDocumentPath { get; set; } = string.Empty;
 		public string CertificatePath { get; set; } = string.Empty;
-		public string SelectedCategories { get; set; } = string.Empty;
+		public List<Guid> SelectedCategories { get; set; } = new();
+
 		public ServiceProviderApplicationStatus Status { get; set; }
 		public string? RejectionReason { get; set; }
 		public DateTime CreatedAt { get; set; }

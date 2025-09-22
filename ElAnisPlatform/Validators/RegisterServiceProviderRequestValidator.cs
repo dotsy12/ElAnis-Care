@@ -1,6 +1,8 @@
 ﻿
 using ElAnis.Entities.DTO.Account.Auth.Register;
 using FluentValidation;
+using System.Linq;
+
 
 namespace ElAnis.API.Validators
 {
@@ -71,9 +73,10 @@ namespace ElAnis.API.Validators
 			// Selected Categories
 			RuleFor(x => x.SelectedCategoryIds)
 				.NotEmpty().WithMessage("At least one category must be selected.")
-				.Must(BeValidCategoryIds).WithMessage("Category IDs must be valid numbers separated by commas.");
+				.Must(ids => ids.All(id => id != Guid.Empty))
+				.WithMessage("Category IDs must be valid GUIDs and not empty.");
 
-			// File Validation
+					// File Validation
 			RuleFor(x => x.IdDocument)
 				.NotNull().WithMessage("ID document is required.")
 				.Must(BeValidFileSize).WithMessage("ID document size cannot exceed 5MB.")

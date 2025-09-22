@@ -119,7 +119,6 @@ namespace ElAnis.DataAccess.Services.Admin
 				return _responseHandler.ServerError<ServiceProviderApplicationDetailDto>("Error retrieving application details");
 			}
 		}
-
 		public async Task<Response<string>> ApproveServiceProviderApplicationAsync(Guid applicationId, ClaimsPrincipal adminClaims)
 		{
 			using var transaction = await _context.Database.BeginTransactionAsync();
@@ -131,7 +130,7 @@ namespace ElAnis.DataAccess.Services.Admin
 
 				var application = await _context.ServiceProviderApplications
 					.Include(a => a.User)
-					.FirstOrDefaultAsync(a => a.Id == applicationId); // مقارنة Guid بـ Guid مباشرة
+					.FirstOrDefaultAsync(a => a.Id == applicationId);
 
 				if (application == null)
 					return _responseHandler.NotFound<string>("Application not found");
@@ -165,24 +164,24 @@ namespace ElAnis.DataAccess.Services.Admin
 				};
 
 				_context.ServiceProviderProfiles.Add(serviceProviderProfile);
-
-				// حفظ الـ ServiceProviderProfile الأول عشان نجيب الـ ID
 				await _context.SaveChangesAsync();
 
-				// Create categories relationships based on SelectedCategories
-				if (!string.IsNullOrEmpty(application.SelectedCategories))
+				// Create categories relationships - استخدم الـ List مباشرة
+				if (application.SelectedCategories != null && application.SelectedCategories.Count > 0)
 				{
 					try
 					{
-						var categoryIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(application.SelectedCategories);
-						if (categoryIds?.Count > 0) // استخدم Count بدلاً من Any()
-						{
-							// تأكد إن الـ Categories موجودة
-							var existingCategoryIds = await _context.Categories
-								.Where(c => categoryIds.Contains(c.Id) && c.IsActive)
-								.Select(c => c.Id)
-								.ToListAsync();
+						// استخدم الـ List مباشرة - مش محتاج Deserialize
+						var categoryIds = application.SelectedCategories;
 
+						// تأكد إن الـ Categories موجودة
+						var existingCategoryIds = await _context.Categories
+							.Where(c => categoryIds.Contains(c.Id) && c.IsActive)
+							.Select(c => c.Id)
+							.ToListAsync();
+
+						if (existingCategoryIds.Count > 0)
+						{
 							var categoryRelationships = existingCategoryIds.Select(catId => new ServiceProviderCategory
 							{
 								ServiceProviderId = serviceProviderProfile.Id,
@@ -195,7 +194,7 @@ namespace ElAnis.DataAccess.Services.Admin
 					}
 					catch (Exception ex)
 					{
-						_logger.LogWarning(ex, "Failed to parse selected categories: {Categories}", application.SelectedCategories);
+						_logger.LogWarning(ex, "Failed to process selected categories for application {ApplicationId}", applicationId);
 					}
 				}
 
@@ -212,7 +211,6 @@ namespace ElAnis.DataAccess.Services.Admin
 				return _responseHandler.ServerError<string>("Error approving application");
 			}
 		}
-
 		public async Task<Response<string>> RejectServiceProviderApplicationAsync(Guid applicationId, string rejectionReason, ClaimsPrincipal adminClaims)
 		{
 			try

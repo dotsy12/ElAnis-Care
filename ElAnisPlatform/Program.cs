@@ -1,4 +1,4 @@
-
+﻿
 using ElAnis.API.Extensions;
 using ElAnis.DataAccess.ApplicationContext;
 using ElAnis.DataAccess.Extensions;
@@ -19,86 +19,76 @@ namespace ElAnisPlatform
     {
         public static async Task Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+			var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddControllers();
-
-            builder.Host.UseSerilogLogging();
-
-
+			builder.Services.AddControllers();
+			builder.Host.UseSerilogLogging();
 
 			// DbContext
 			builder.Services.AddDbContext<AuthContext>(options =>
 				options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-		
-
-			
-
-			// Active Model State
+			// Configure API Behavior
 			builder.Services.AddControllers().ConfigureApiBehaviorOptions(
-                options => options.SuppressModelStateInvalidFilter = true
-            );
+				options => options.SuppressModelStateInvalidFilter = true
+			);
 
-            // IOptional Pattern
-            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JWT"));
-            builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
-            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-            builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection("Authorization:Google"));
+			// IOptions Pattern
+			builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+			builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
+			builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+			builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection("Authorization:Google"));
 
-            builder.Services.AddApplicationServices();
-            builder.Services.AddScoped<ResponseHandler>();
-            builder.Services.AddDatabase(builder.Configuration);
-            builder.Services.AddAuthenticationAndAuthorization(builder.Configuration);
-            builder.Services.AddEmailServices(builder.Configuration);
+			builder.Services.AddApplicationServices();
+			builder.Services.AddScoped<ResponseHandler>();
+			builder.Services.AddDatabase(builder.Configuration);
+			builder.Services.AddAuthenticationAndAuthorization(builder.Configuration);
+			builder.Services.AddEmailServices(builder.Configuration);
+			builder.Services.AddFluentValidation();
+			builder.Services.AddResendOtpRateLimiter();
 
-            builder.Services.AddFluentValidation();
+			builder.Services.AddDataProtection()
+				.PersistKeysToDbContext<AuthContext>()
+				.SetApplicationName("AuthStarter");
 
-            // Rate limiter for otp resend
-            builder.Services.AddResendOtpRateLimiter();
+			// Redis
+			builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+			{
+				var configuration = ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("Redis"));
+				configuration.AbortOnConnectFail = false;
+				return ConnectionMultiplexer.Connect(configuration);
+			});
 
-            builder.Services.AddDataProtection()
-                .PersistKeysToDbContext<AuthContext>()
-                .SetApplicationName("AuthStarter");
+			builder.Services.AddSwagger();
+			builder.Services.AddEndpointsApiExplorer();
 
-            // For redis 
-            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-            {
-                var configuration = ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("Redis"));
-                configuration.AbortOnConnectFail = false;
-                return ConnectionMultiplexer.Connect(configuration);
-            });
+			var app = builder.Build();
 
-            builder.Services.AddSwagger();
-            builder.Services.AddEndpointsApiExplorer();
+			// 🔹 Seed Roles & Users
+			using (var scope = app.Services.CreateScope())
+			{
+				var services = scope.ServiceProvider;
+				var userManager = services.GetRequiredService<UserManager<User>>();
+				var roleManager = services.GetRequiredService<RoleManager<ElAnis.Entities.Models.Auth.Identity.Role>>();
 
-            var app = builder.Build();
+				await RoleSeeder.SeedAsync(roleManager);
+				await UserSeeder.SeedAsync(userManager);
+			}
 
-            #region Seed User,Role Data
-            using (var scope = app.Services.CreateScope())
-            {
-                var services = scope.ServiceProvider;
-                var userManager = services.GetRequiredService<UserManager<User>>();
-                var roleManager = services.GetRequiredService<RoleManager<ElAnis.Entities.Models.Auth.Identity.Role>>();
+			// 🔹 Swagger always enabled
+			app.UseSwagger();
+			app.UseSwaggerUI(c =>
+			{
+				c.SwaggerEndpoint("/swagger/v1/swagger.json", "ElAnis API V1");
+				c.RoutePrefix = string.Empty; // Swagger يفتح مباشرة
+			});
 
-                await RoleSeeder.SeedAsync(roleManager);
-                await UserSeeder.SeedAsync(userManager);
-            }
-            #endregion
+			app.UseHttpsRedirection();
+			app.UseAuthentication();
+			app.UseAuthorization();
+			app.MapControllers();
+			app.Run();
 
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseHttpsRedirection();
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            app.MapControllers();
-
-            app.Run();
-        }
-    }
+		}
+	}
 }

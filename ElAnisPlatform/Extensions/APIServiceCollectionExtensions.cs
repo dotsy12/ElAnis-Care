@@ -99,7 +99,7 @@ namespace ElAnis.API.Extensions
         {
             services.AddSwaggerGen(option =>
             {
-                option.SwaggerDoc("v1", new OpenApiInfo { Title = "MV-Ecommerce", Version = "v1" });
+                option.SwaggerDoc("v1", new OpenApiInfo { Title = "MV-ElAnis", Version = "v1" });
 
                 // For XML Comments we will use it later
                 //var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -134,6 +134,9 @@ namespace ElAnis.API.Extensions
 
             return services;
         }
+
+
+
 		public static IServiceCollection AddFluentValidation(this IServiceCollection services)
 		{
 			services.AddControllers()

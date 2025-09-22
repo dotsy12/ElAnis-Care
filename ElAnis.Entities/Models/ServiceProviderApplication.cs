@@ -32,7 +32,8 @@ namespace ElAnis.Entities.Models
 		public string CertificatePath { get; set; } = string.Empty;
 
 		// Selected Categories
-		public string SelectedCategories { get; set; } = string.Empty; // JSON string of category IDs
+		public List<Guid> SelectedCategories { get; set; } = new();
+		// JSON string of category IDs
 
 		// Application Status
 		public ServiceProviderApplicationStatus Status { get; set; } = ServiceProviderApplicationStatus.Pending;

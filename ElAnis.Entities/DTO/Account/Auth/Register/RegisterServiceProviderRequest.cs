@@ -1,9 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace ElAnis.Entities.DTO.Account.Auth.Register
 {
@@ -32,7 +28,8 @@ namespace ElAnis.Entities.DTO.Account.Auth.Register
 		public IFormFile? Certificate { get; set; }
 
 		// Selected Categories (comma-separated IDs or JSON)
-		public string SelectedCategoryIds { get; set; } = string.Empty;
-	
+		public List<Guid> SelectedCategoryIds { get; set; } = new();
+
+
 	}
 }
