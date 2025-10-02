@@ -12,18 +12,17 @@ namespace ElAnis.DataAccess.Services.ImageUploading
     {
         private readonly Cloudinary _cloudinary;
         private readonly CloudinarySettings _cloudinarySettings;
-        public CloudinaryImageUploadService(IOptions<CloudinarySettings> Cloudinaryoptions)
-        {
-            _cloudinarySettings = Cloudinaryoptions.Value ?? throw new ArgumentNullException(nameof(Cloudinaryoptions));
-            var account = new Account(_cloudinarySettings.CloudName, _cloudinarySettings.ApiKey, _cloudinarySettings.ApiSecret);
 
+        public CloudinaryImageUploadService(IOptions<CloudinarySettings> cloudinaryOptions)
+        {
+            _cloudinarySettings = cloudinaryOptions.Value ?? throw new ArgumentNullException(nameof(cloudinaryOptions));
+            var account = new Account(_cloudinarySettings.CloudName, _cloudinarySettings.ApiKey, _cloudinarySettings.ApiSecret);
             _cloudinary = new Cloudinary(account);
             _cloudinary.Api.Secure = true;
         }
+
         public async Task<string> UploadAsync(IFormFile file)
         {
-            // NOTE : Image validation must be done e.g(file extension....)
-
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File is empty or null");
 

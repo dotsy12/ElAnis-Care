@@ -1,385 +1,381 @@
-﻿using ElAnis.DataAccess.ApplicationContext;
+﻿using System.Security.Claims;
+
 using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.Models;
 using ElAnis.Entities.Models.Auth.Identity;
 using ElAnis.Entities.Shared.Bases;
 using ElAnis.Utilities.Enum;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 
 namespace ElAnis.DataAccess.Services.Admin
 {
-	public class AdminService : IAdminService
-	{
-		private readonly AuthContext _context;
-		private readonly UserManager<User> _userManager;
-		private readonly ResponseHandler _responseHandler;
-		private readonly ILogger<AdminService> _logger;
+    public class AdminService : IAdminService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly UserManager<User> _userManager;
+        private readonly ResponseHandler _responseHandler;
+        private readonly ILogger<AdminService> _logger;
 
-		public AdminService(AuthContext context, UserManager<User> userManager, ResponseHandler responseHandler, ILogger<AdminService> logger)
-		{
-			_context = context;
-			_userManager = userManager;
-			_responseHandler = responseHandler;
-			_logger = logger;
-		}
+        public AdminService(
+            IUnitOfWork unitOfWork,
+            UserManager<User> userManager,
+            ResponseHandler responseHandler,
+            ILogger<AdminService> logger)
+        {
+            _unitOfWork = unitOfWork;
+            _userManager = userManager;
+            _responseHandler = responseHandler;
+            _logger = logger;
+        }
 
-		public async Task<Response<PaginatedResult<ServiceProviderApplicationDto>>> GetServiceProviderApplicationsAsync(int page, int pageSize)
-		{
-			try
-			{
-				var query = _context.ServiceProviderApplications
-					.Include(a => a.User)
-					.Include(a => a.ReviewedBy)
-					.OrderByDescending(a => a.CreatedAt);
+        public async Task<Response<PaginatedResult<ServiceProviderApplicationDto>>> GetServiceProviderApplicationsAsync(int page, int pageSize)
+        {
+            try
+            {
+                var (applications, totalCount) = await _unitOfWork.ServiceProviderApplications
+                    .GetApplicationsWithDetailsAsync(page, pageSize);
 
-				var totalCount = await query.CountAsync();
-				var applications = await query
-					.Skip((page - 1) * pageSize)
-					.Take(pageSize)
-					.Select(a => new ServiceProviderApplicationDto
-					{
-						Id = a.Id, // الآن Guid
-						UserId = a.UserId,
-						UserEmail = a.User.Email ?? "",
-						FirstName = a.FirstName,
-						LastName = a.LastName,
-						PhoneNumber = a.PhoneNumber,
-						Bio = a.Bio,
-						Experience = a.Experience,
-						HourlyRate = a.HourlyRate,
-						Status = a.Status,
-						CreatedAt = a.CreatedAt,
-						ReviewedAt = a.ReviewedAt,
-						ReviewedByName = a.ReviewedBy != null ? $"{a.ReviewedBy.FirstName} {a.ReviewedBy.LastName}" : null,
-						RejectionReason = a.RejectionReason
-					})
-					.ToListAsync();
+                var applicationDtos = applications.Select(a => new ServiceProviderApplicationDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserEmail = a.User.Email ?? "",
+                    FirstName = a.FirstName,
+                    LastName = a.LastName,
+                    PhoneNumber = a.PhoneNumber,
+                    Bio = a.Bio,
+                    Experience = a.Experience,
+                    HourlyRate = a.HourlyRate,
+                    Status = a.Status,
+                    CreatedAt = a.CreatedAt,
+                    ReviewedAt = a.ReviewedAt,
+                    ReviewedByName = a.ReviewedBy != null ? $"{a.ReviewedBy.FirstName} {a.ReviewedBy.LastName}" : null,
+                    RejectionReason = a.RejectionReason
+                }).ToList();
 
-				var result = new PaginatedResult<ServiceProviderApplicationDto>
-				{
-					Items = applications,
-					TotalCount = totalCount,
-					Page = page,
-					PageSize = pageSize
-				};
+                var result = new PaginatedResult<ServiceProviderApplicationDto>
+                {
+                    Items = applicationDtos,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize
+                };
 
-				return _responseHandler.Success(result, "Applications retrieved successfully.");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error retrieving service provider applications");
-				return _responseHandler.ServerError<PaginatedResult<ServiceProviderApplicationDto>>("Error retrieving applications");
-			}
-		}
+                return _responseHandler.Success(result, "Applications retrieved successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving service provider applications");
+                return _responseHandler.ServerError<PaginatedResult<ServiceProviderApplicationDto>>("Error retrieving applications");
+            }
+        }
 
-		public async Task<Response<ServiceProviderApplicationDetailDto>> GetServiceProviderApplicationByIdAsync(Guid id)
-		{
-			try
-			{
-				var application = await _context.ServiceProviderApplications
-					.Include(a => a.User)
-					.Include(a => a.ReviewedBy)
-					.FirstOrDefaultAsync(a => a.Id == id); // مقارنة Guid بـ Guid مباشرة
+        public async Task<Response<ServiceProviderApplicationDetailDto>> GetServiceProviderApplicationByIdAsync(Guid id)
+        {
+            try
+            {
+                var application = await _unitOfWork.ServiceProviderApplications
+                    .GetApplicationWithDetailsAsync(id);
 
-				if (application == null)
-					return _responseHandler.NotFound<ServiceProviderApplicationDetailDto>("Application not found");
+                if (application == null)
+                    return _responseHandler.NotFound<ServiceProviderApplicationDetailDto>("Application not found");
 
-				var result = new ServiceProviderApplicationDetailDto
-				{
-					Id = application.Id,
-					UserId = application.UserId,
-					UserEmail = application.User.Email ?? "",
-					FirstName = application.FirstName,
-					LastName = application.LastName,
-					PhoneNumber = application.PhoneNumber,
-					Address = application.Address,
-					DateOfBirth = application.DateOfBirth,
-					Bio = application.Bio,
-					NationalId = application.NationalId,
-					Experience = application.Experience,
-					HourlyRate = application.HourlyRate,
-					IdDocumentPath = application.IdDocumentPath,
-					CertificatePath = application.CertificatePath,
-					SelectedCategories = application.SelectedCategories,
-					Status = application.Status,
-					RejectionReason = application.RejectionReason,
-					CreatedAt = application.CreatedAt,
-					ReviewedAt = application.ReviewedAt,
-					ReviewedByName = application.ReviewedBy != null ? $"{application.ReviewedBy.FirstName} {application.ReviewedBy.LastName}" : null
-				};
+                var result = new ServiceProviderApplicationDetailDto
+                {
+                    Id = application.Id,
+                    UserId = application.UserId,
+                    UserEmail = application.User.Email ?? "",
+                    FirstName = application.FirstName,
+                    LastName = application.LastName,
+                    PhoneNumber = application.PhoneNumber,
+                    Address = application.Address,
+                    DateOfBirth = application.DateOfBirth,
+                    Bio = application.Bio,
+                    NationalId = application.NationalId,
+                    Experience = application.Experience,
+                    HourlyRate = application.HourlyRate,
+                    IdDocumentPath = application.IdDocumentPath,
+                    CertificatePath = application.CertificatePath,
+                    SelectedCategories = application.SelectedCategories,
+                    Status = application.Status,
+                    RejectionReason = application.RejectionReason,
+                    CreatedAt = application.CreatedAt,
+                    ReviewedAt = application.ReviewedAt,
+                    ReviewedByName = application.ReviewedBy != null ? $"{application.ReviewedBy.FirstName} {application.ReviewedBy.LastName}" : null
+                };
 
-				return _responseHandler.Success(result, "Application details retrieved successfully.");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error retrieving application details for ID: {ApplicationId}", id);
-				return _responseHandler.ServerError<ServiceProviderApplicationDetailDto>("Error retrieving application details");
-			}
-		}
-		public async Task<Response<string>> ApproveServiceProviderApplicationAsync(Guid applicationId, ClaimsPrincipal adminClaims)
-		{
-			using var transaction = await _context.Database.BeginTransactionAsync();
-			try
-			{
-				var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-				if (string.IsNullOrEmpty(adminId))
-					return _responseHandler.Unauthorized<string>("Admin not authenticated");
+                return _responseHandler.Success(result, "Application details retrieved successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving application details for ID: {ApplicationId}", id);
+                return _responseHandler.ServerError<ServiceProviderApplicationDetailDto>("Error retrieving application details");
+            }
+        }
 
-				var application = await _context.ServiceProviderApplications
-					.Include(a => a.User)
-					.FirstOrDefaultAsync(a => a.Id == applicationId);
+        public async Task<Response<string>> ApproveServiceProviderApplicationAsync(Guid applicationId, ClaimsPrincipal adminClaims)
+        {
+            try
+            {
+                var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(adminId))
+                    return _responseHandler.Unauthorized<string>("Admin not authenticated");
 
-				if (application == null)
-					return _responseHandler.NotFound<string>("Application not found");
+                await _unitOfWork.BeginTransactionAsync();
 
-				if (application.Status != ServiceProviderApplicationStatus.Pending)
-					return _responseHandler.BadRequest<string>("Application has already been reviewed");
+                var application = await _unitOfWork.ServiceProviderApplications
+                    .GetApplicationWithDetailsAsync(applicationId);
 
-				// Update application status
-				application.Status = ServiceProviderApplicationStatus.Approved;
-				application.ReviewedAt = DateTime.UtcNow;
-				application.ReviewedById = adminId;
+                if (application == null)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.NotFound<string>("Application not found");
+                }
 
-				// Change user role from USER to PROVIDER
-				var user = application.User;
-				await _userManager.RemoveFromRoleAsync(user, "USER");
-				await _userManager.AddToRoleAsync(user, "PROVIDER");
+                if (application.Status != ServiceProviderApplicationStatus.Pending)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.BadRequest<string>("Application has already been reviewed");
+                }
 
-				// Create ServiceProviderProfile
-				var serviceProviderProfile = new ServiceProviderProfile
-				{
-					UserId = user.Id,
-					Bio = application.Bio,
-					NationalId = application.NationalId,
-					Experience = application.Experience,
-					HourlyRate = application.HourlyRate,
-					IdDocumentPath = application.IdDocumentPath,
-					CertificatePath = application.CertificatePath,
-					Status = ServiceProviderStatus.Approved,
-					IsAvailable = true,
-					ApprovedAt = DateTime.UtcNow
-				};
+                // Update application status
+                application.Status = ServiceProviderApplicationStatus.Approved;
+                application.ReviewedAt = DateTime.UtcNow;
+                application.ReviewedById = adminId;
+                _unitOfWork.ServiceProviderApplications.Update(application);
 
-				_context.ServiceProviderProfiles.Add(serviceProviderProfile);
-				await _context.SaveChangesAsync();
+                // Change user role
+                var user = application.User;
+                await _userManager.RemoveFromRoleAsync(user, "USER");
+                await _userManager.AddToRoleAsync(user, "PROVIDER");
 
-				// Create categories relationships - استخدم الـ List مباشرة
-				if (application.SelectedCategories != null && application.SelectedCategories.Count > 0)
-				{
-					try
-					{
-						// استخدم الـ List مباشرة - مش محتاج Deserialize
-						var categoryIds = application.SelectedCategories;
+                // Create ServiceProviderProfile
+                var serviceProviderProfile = new ServiceProviderProfile
+                {
+                    UserId = user.Id,
+                    Bio = application.Bio,
+                    NationalId = application.NationalId,
+                    Experience = application.Experience,
+                    HourlyRate = application.HourlyRate,
+                    IdDocumentPath = application.IdDocumentPath,
+                    CertificatePath = application.CertificatePath,
+                    Status = ServiceProviderStatus.Approved,
+                    IsAvailable = true,
+                    ApprovedAt = DateTime.UtcNow
+                };
 
-						// تأكد إن الـ Categories موجودة
-						var existingCategoryIds = await _context.Categories
-							.Where(c => categoryIds.Contains(c.Id) && c.IsActive)
-							.Select(c => c.Id)
-							.ToListAsync();
+                await _unitOfWork.ServiceProviderProfiles.AddAsync(serviceProviderProfile);
 
-						if (existingCategoryIds.Count > 0)
-						{
-							var categoryRelationships = existingCategoryIds.Select(catId => new ServiceProviderCategory
-							{
-								ServiceProviderId = serviceProviderProfile.Id,
-								CategoryId = catId,
-								CreatedAt = DateTime.UtcNow
-							}).ToList();
+                // Handle categories
+                if (application.SelectedCategories != null && application.SelectedCategories.Count > 0)
+                {
+                    try
+                    {
+                        var categoryIds = application.SelectedCategories;
+                        var existingCategories = await _unitOfWork.Categories
+                            .FindAsync(c => categoryIds.Contains(c.Id) && c.IsActive);
 
-							_context.ServiceProviderCategories.AddRange(categoryRelationships);
-						}
-					}
-					catch (Exception ex)
-					{
-						_logger.LogWarning(ex, "Failed to process selected categories for application {ApplicationId}", applicationId);
-					}
-				}
+                        if (existingCategories.Any())
+                        {
+                            var categoryRelationships = existingCategories.Select(cat => new ServiceProviderCategory
+                            {
+                                ServiceProviderId = serviceProviderProfile.Id,
+                                CategoryId = cat.Id,
+                                CreatedAt = DateTime.UtcNow
+                            }).ToList();
 
-				await _context.SaveChangesAsync();
-				await transaction.CommitAsync();
+                            await _unitOfWork.ServiceProviderCategories.AddRangeAsync(categoryRelationships);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to process selected categories for application {ApplicationId}", applicationId);
+                    }
+                }
 
-				_logger.LogInformation("Service provider application {ApplicationId} approved by admin {AdminId}", applicationId, adminId);
-				return _responseHandler.Success<string>(null, "Application approved successfully");
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				_logger.LogError(ex, "Error approving application {ApplicationId}", applicationId);
-				return _responseHandler.ServerError<string>("Error approving application");
-			}
-		}
-		public async Task<Response<string>> RejectServiceProviderApplicationAsync(Guid applicationId, string rejectionReason, ClaimsPrincipal adminClaims)
-		{
-			try
-			{
-				var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-				if (string.IsNullOrEmpty(adminId))
-					return _responseHandler.Unauthorized<string>("Admin not authenticated");
+                await _unitOfWork.CommitAsync();
 
-				var application = await _context.ServiceProviderApplications
-					.FirstOrDefaultAsync(a => a.Id == applicationId); // مقارنة Guid بـ Guid مباشرة
+                _logger.LogInformation("Service provider application {ApplicationId} approved by admin {AdminId}", applicationId, adminId);
+                return _responseHandler.Success<string>(null, "Application approved successfully");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                _logger.LogError(ex, "Error approving application {ApplicationId}", applicationId);
+                return _responseHandler.ServerError<string>("Error approving application");
+            }
+        }
 
-				if (application == null)
-					return _responseHandler.NotFound<string>("Application not found");
+        public async Task<Response<string>> RejectServiceProviderApplicationAsync(Guid applicationId, string rejectionReason, ClaimsPrincipal adminClaims)
+        {
+            try
+            {
+                var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(adminId))
+                    return _responseHandler.Unauthorized<string>("Admin not authenticated");
 
-				if (application.Status != ServiceProviderApplicationStatus.Pending)
-					return _responseHandler.BadRequest<string>("Application has already been reviewed");
+                var application = await _unitOfWork.ServiceProviderApplications.GetByIdAsync(applicationId);
 
-				application.Status = ServiceProviderApplicationStatus.Rejected;
-				application.RejectionReason = rejectionReason;
-				application.ReviewedAt = DateTime.UtcNow;
-				application.ReviewedById = adminId;
+                if (application == null)
+                    return _responseHandler.NotFound<string>("Application not found");
 
-				await _context.SaveChangesAsync();
+                if (application.Status != ServiceProviderApplicationStatus.Pending)
+                    return _responseHandler.BadRequest<string>("Application has already been reviewed");
 
-				// TODO: Send rejection notification email
+                application.Status = ServiceProviderApplicationStatus.Rejected;
+                application.RejectionReason = rejectionReason;
+                application.ReviewedAt = DateTime.UtcNow;
+                application.ReviewedById = adminId;
 
-				_logger.LogInformation("Service provider application {ApplicationId} rejected by admin {AdminId}", applicationId, adminId);
-				return _responseHandler.Success<string>(null, "Application rejected successfully");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error rejecting application {ApplicationId}", applicationId);
-				return _responseHandler.ServerError<string>("Error rejecting application");
-			}
-		}
+                _unitOfWork.ServiceProviderApplications.Update(application);
+                await _unitOfWork.CompleteAsync();
 
-		public async Task<Response<AdminDashboardStatsDto>> GetDashboardStatsAsync()
-		{
-			try
-			{
-				var stats = new AdminDashboardStatsDto();
+                _logger.LogInformation("Service provider application {ApplicationId} rejected by admin {AdminId}", applicationId, adminId);
+                return _responseHandler.Success<string>(null, "Application rejected successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rejecting application {ApplicationId}", applicationId);
+                return _responseHandler.ServerError<string>("Error rejecting application");
+            }
+        }
 
-				// Basic counts
-				stats.TotalUsers = await _context.Users.CountAsync(u => !u.IsDeleted);
-				stats.TotalServiceProviders = await _context.ServiceProviderProfiles.CountAsync();
-				stats.PendingApplications = await _context.ServiceProviderApplications.CountAsync(a => a.Status == ServiceProviderApplicationStatus.Pending);
-				stats.TotalServiceRequests = await _context.ServiceRequests.CountAsync();
-				stats.CompletedServiceRequests = await _context.ServiceRequests.CountAsync(sr => sr.Status == ServiceRequestStatus.Completed);
-				stats.TotalReviews = await _context.Reviews.CountAsync();
+        public async Task<Response<AdminDashboardStatsDto>> GetDashboardStatsAsync()
+        {
+            try
+            {
+                var stats = new AdminDashboardStatsDto();
 
-				// Calculate total earnings (handle empty table)
-				var serviceProviders = await _context.ServiceProviderProfiles.ToListAsync();
-				stats.TotalEarnings = serviceProviders.Count > 0 ? serviceProviders.Sum(sp => sp.TotalEarnings) : 0; // استخدم Count بدلاً من Any()
+                // Use repositories for counts
+                stats.TotalUsers = await _unitOfWork.Users.CountAsync(u => !u.IsDeleted);
+                stats.TotalServiceProviders = await _unitOfWork.ServiceProviderProfiles.CountAsync();
+                stats.PendingApplications = await _unitOfWork.ServiceProviderApplications.CountAsync(
+                    a => a.Status == ServiceProviderApplicationStatus.Pending);
 
-				// Calculate average rating (handle division by zero)
-				var providersWithReviews = serviceProviders.Where(sp => sp.TotalReviews > 0).ToList();
-				stats.AverageRating = providersWithReviews.Count > 0 ? // استخدم Count بدلاً من Any()
-					providersWithReviews.Average(sp => sp.AverageRating) : 0;
+                // Get additional stats using generic repository
+                var serviceRequestRepo = _unitOfWork.Repository<ServiceRequest>();
+                var reviewRepo = _unitOfWork.Repository<Review>();
 
-				return _responseHandler.Success(stats, "Dashboard stats retrieved successfully");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error retrieving dashboard stats");
-				return _responseHandler.ServerError<AdminDashboardStatsDto>("Error retrieving dashboard stats");
-			}
-		}
+                stats.TotalServiceRequests = await serviceRequestRepo.CountAsync();
+                stats.CompletedServiceRequests = await serviceRequestRepo.CountAsync(
+                    sr => sr.Status == ServiceRequestStatus.Completed);
+                stats.TotalReviews = await reviewRepo.CountAsync();
 
-		public async Task<Response<PaginatedResult<ServiceProviderDto>>> GetServiceProvidersAsync(int page, int pageSize)
-		{
-			try
-			{
-				var query = _context.ServiceProviderProfiles
-					.Include(sp => sp.User)
-					.OrderByDescending(sp => sp.CreatedAt);
+                // Calculate earnings and ratings
+                var serviceProviders = await _unitOfWork.ServiceProviderProfiles.GetAllAsync();
+                var providersList = serviceProviders.ToList();
 
-				var totalCount = await query.CountAsync();
-				var serviceProviders = await query
-					.Skip((page - 1) * pageSize)
-					.Take(pageSize)
-					.Select(sp => new ServiceProviderDto
-					{
-						Id = sp.Id,
-						UserId = sp.UserId,
-						UserEmail = sp.User.Email ?? "",
-						FirstName = sp.User.FirstName,
-						LastName = sp.User.LastName,
-						PhoneNumber = sp.User.PhoneNumber ?? "",
-						HourlyRate = sp.HourlyRate,
-						Status = sp.Status,
-						IsAvailable = sp.IsAvailable,
-						CompletedJobs = sp.CompletedJobs,
-						TotalEarnings = sp.TotalEarnings,
-						AverageRating = sp.AverageRating,
-						CreatedAt = sp.CreatedAt
-					})
-					.ToListAsync();
+                stats.TotalEarnings = providersList.Count > 0 ? providersList.Sum(sp => sp.TotalEarnings) : 0;
 
-				var result = new PaginatedResult<ServiceProviderDto>
-				{
-					Items = serviceProviders,
-					TotalCount = totalCount,
-					Page = page,
-					PageSize = pageSize
-				};
+                var providersWithReviews = providersList.Where(sp => sp.TotalReviews > 0).ToList();
+                stats.AverageRating = providersWithReviews.Count > 0 ?
+                    providersWithReviews.Average(sp => sp.AverageRating) : 0;
 
-				return _responseHandler.Success(result, "Service providers retrieved successfully");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error retrieving service providers");
-				return _responseHandler.ServerError<PaginatedResult<ServiceProviderDto>>("Error retrieving service providers");
-			}
-		}
+                return _responseHandler.Success(stats, "Dashboard stats retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving dashboard stats");
+                return _responseHandler.ServerError<AdminDashboardStatsDto>("Error retrieving dashboard stats");
+            }
+        }
 
-		public async Task<Response<string>> SuspendServiceProviderAsync(Guid serviceProviderId, string reason, ClaimsPrincipal adminClaims)
-		{
-			try
-			{
-				var serviceProvider = await _context.ServiceProviderProfiles
-					.FirstOrDefaultAsync(sp => sp.Id == serviceProviderId); // مقارنة Guid بـ Guid مباشرة
+        public async Task<Response<PaginatedResult<ServiceProviderDto>>> GetServiceProvidersAsync(int page, int pageSize)
+        {
+            try
+            {
+                var (serviceProviders, totalCount) = await _unitOfWork.ServiceProviderProfiles
+                    .GetProvidersWithDetailsAsync(page, pageSize);
 
-				if (serviceProvider == null)
-					return _responseHandler.NotFound<string>("Service provider not found");
+                var serviceProviderDtos = serviceProviders.Select(sp => new ServiceProviderDto
+                {
+                    Id = sp.Id,
+                    UserId = sp.UserId,
+                    UserEmail = sp.User.Email ?? "",
+                    FirstName = sp.User.FirstName,
+                    LastName = sp.User.LastName,
+                    PhoneNumber = sp.User.PhoneNumber ?? "",
+                    HourlyRate = sp.HourlyRate,
+                    Status = sp.Status,
+                    IsAvailable = sp.IsAvailable,
+                    CompletedJobs = sp.CompletedJobs,
+                    TotalEarnings = sp.TotalEarnings,
+                    AverageRating = sp.AverageRating,
+                    CreatedAt = sp.CreatedAt
+                }).ToList();
 
-				serviceProvider.Status = ServiceProviderStatus.Suspended;
-				serviceProvider.RejectionReason = reason;
-				serviceProvider.IsAvailable = false;
+                var result = new PaginatedResult<ServiceProviderDto>
+                {
+                    Items = serviceProviderDtos,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize
+                };
 
-				await _context.SaveChangesAsync();
+                return _responseHandler.Success(result, "Service providers retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving service providers");
+                return _responseHandler.ServerError<PaginatedResult<ServiceProviderDto>>("Error retrieving service providers");
+            }
+        }
 
-				var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-				_logger.LogInformation("Service provider {ServiceProviderId} suspended by admin {AdminId}", serviceProviderId, adminId);
+        public async Task<Response<string>> SuspendServiceProviderAsync(Guid serviceProviderId, string reason, ClaimsPrincipal adminClaims)
+        {
+            try
+            {
+                var serviceProvider = await _unitOfWork.ServiceProviderProfiles.GetByIdAsync(serviceProviderId);
 
-				return _responseHandler.Success<string>(null, "Service provider suspended successfully");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error suspending service provider {ServiceProviderId}", serviceProviderId);
-				return _responseHandler.ServerError<string>("Error suspending service provider");
-			}
-		}
+                if (serviceProvider == null)
+                    return _responseHandler.NotFound<string>("Service provider not found");
 
-		public async Task<Response<string>> ActivateServiceProviderAsync(Guid serviceProviderId, ClaimsPrincipal adminClaims)
-		{
-			try
-			{
-				var serviceProvider = await _context.ServiceProviderProfiles
-					.FirstOrDefaultAsync(sp => sp.Id == serviceProviderId); // مقارنة Guid بـ Guid مباشرة
+                serviceProvider.Status = ServiceProviderStatus.Suspended;
+                serviceProvider.RejectionReason = reason;
+                serviceProvider.IsAvailable = false;
 
-				if (serviceProvider == null)
-					return _responseHandler.NotFound<string>("Service provider not found");
+                _unitOfWork.ServiceProviderProfiles.Update(serviceProvider);
+                await _unitOfWork.CompleteAsync();
 
-				serviceProvider.Status = ServiceProviderStatus.Approved;
-				serviceProvider.RejectionReason = null;
-				serviceProvider.IsAvailable = true;
+                var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                _logger.LogInformation("Service provider {ServiceProviderId} suspended by admin {AdminId}", serviceProviderId, adminId);
 
-				await _context.SaveChangesAsync();
+                return _responseHandler.Success<string>(null, "Service provider suspended successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error suspending service provider {ServiceProviderId}", serviceProviderId);
+                return _responseHandler.ServerError<string>("Error suspending service provider");
+            }
+        }
 
-				var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-				_logger.LogInformation("Service provider {ServiceProviderId} activated by admin {AdminId}", serviceProviderId, adminId);
+        public async Task<Response<string>> ActivateServiceProviderAsync(Guid serviceProviderId, ClaimsPrincipal adminClaims)
+        {
+            try
+            {
+                var serviceProvider = await _unitOfWork.ServiceProviderProfiles.GetByIdAsync(serviceProviderId);
 
-				return _responseHandler.Success<string>(null, "Service provider activated successfully");
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error activating service provider {ServiceProviderId}", serviceProviderId);
-				return _responseHandler.ServerError<string>("Error activating service provider");
-			}
-		}
-	}
+                if (serviceProvider == null)
+                    return _responseHandler.NotFound<string>("Service provider not found");
+
+                serviceProvider.Status = ServiceProviderStatus.Approved;
+                serviceProvider.RejectionReason = null;
+                serviceProvider.IsAvailable = true;
+
+                _unitOfWork.ServiceProviderProfiles.Update(serviceProvider);
+                await _unitOfWork.CompleteAsync();
+
+                var adminId = adminClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                _logger.LogInformation("Service provider {ServiceProviderId} activated by admin {AdminId}", serviceProviderId, adminId);
+
+                return _responseHandler.Success<string>(null, "Service provider activated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error activating service provider {ServiceProviderId}", serviceProviderId);
+                return _responseHandler.ServerError<string>("Error activating service provider");
+            }
+        }
+    }
 }

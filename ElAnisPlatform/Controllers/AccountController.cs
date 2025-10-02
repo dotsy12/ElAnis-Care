@@ -341,7 +341,7 @@ namespace ElAnis.API.Controllers
 			try
 			{
 				var newTokens = await _authService.RefreshTokenAsync(refreshToken);
-				return Ok(_responseHandler.Success<RefreshTokenResponse>(newTokens, "User token refreshed successfully"));
+				return Ok(_responseHandler.Success<RefreshTokenResponse>(newTokens.Data, "User token refreshed successfully"));
 			}
 			catch (SecurityTokenException ex)
 			{

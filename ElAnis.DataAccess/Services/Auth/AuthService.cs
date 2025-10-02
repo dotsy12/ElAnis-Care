@@ -1,42 +1,46 @@
 ﻿using System.Security.Claims;
-
-using ElAnis.DataAccess.ApplicationContext;
 using ElAnis.DataAccess.Services.Email;
 using ElAnis.DataAccess.Services.OTP;
 using ElAnis.DataAccess.Services.Token;
-using ElAnis.Entities.DTO.Account.Auth;
 using ElAnis.Entities.DTO.Account.Auth.Login;
 using ElAnis.Entities.DTO.Account.Auth.Register;
 using ElAnis.Entities.DTO.Account.Auth.ResetPassword;
 using ElAnis.Entities.Models;
 using ElAnis.Entities.Models.Auth.Identity;
+using ElAnis.Entities.Models.Auth.UserTokens;
 using ElAnis.Entities.Shared.Bases;
 using ElAnis.Utilities.Enum;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 using LoginRequest = ElAnis.Entities.DTO.Account.Auth.Login.LoginRequest;
 using ResetPasswordRequest = ElAnis.Entities.DTO.Account.Auth.ResetPassword.ResetPasswordRequest;
-
+using RefreshTokenResponse = ElAnis.Entities.DTO.Account.Auth.RefreshTokenResponse;
 
 namespace ElAnis.DataAccess.Services.Auth
 {
     public class AuthService : IAuthService
     {
         private readonly UserManager<User> _userManager;
-        private readonly AuthContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IEmailService _emailService;
         private readonly IOTPService _otpService;
         private readonly ResponseHandler _responseHandler;
         private readonly ITokenStoreService _tokenStoreService;
         private readonly ILogger<AuthService> _logger;
 
-        public AuthService(UserManager<User> userManager, AuthContext context, IEmailService emailService, IOTPService otpService, ResponseHandler responseHandler, ITokenStoreService tokenStoreService, ILogger<AuthService> logger)
+        public AuthService(
+            UserManager<User> userManager,
+            IUnitOfWork unitOfWork,
+            IEmailService emailService,
+            IOTPService otpService,
+            ResponseHandler responseHandler,
+            ITokenStoreService tokenStoreService,
+            ILogger<AuthService> logger)
         {
             _userManager = userManager;
-            _context = context;
+            _unitOfWork = unitOfWork;
             _emailService = emailService;
             _otpService = otpService;
             _responseHandler = responseHandler;
@@ -46,8 +50,8 @@ namespace ElAnis.DataAccess.Services.Auth
 
         public async Task<Response<LoginResponse>> LoginAsync(LoginRequest loginRequest)
         {
-            // Find user by email or phone number
-            User? user = await FindUserByEmailOrPhoneAsync(loginRequest.Email, loginRequest.PhoneNumber);
+            // Find user by email or phone number using repository
+            User? user = await _unitOfWork.Users.FindByEmailOrPhoneAsync(loginRequest.Email, loginRequest.PhoneNumber);
 
             if (user == null)
                 return _responseHandler.NotFound<LoginResponse>("User not found.");
@@ -60,22 +64,8 @@ namespace ElAnis.DataAccess.Services.Auth
             if (!user.EmailConfirmed)
                 return _responseHandler.BadRequest<LoginResponse>("Email is not verified. Please verify your email first.");
 
-            //// If OTP is not provided, generate and send OTP
-            //if (string.IsNullOrEmpty(loginRequest.Otp))
-            //{
-            //    var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
-            //    await _emailService.SendOtpEmailAsync(user, otp);
-            //    return _responseHandler.Success<LoginResponse>(null, "OTP sent to your email. Please provide the OTP to complete login.");
-            //}
-
             // Get user roles
             var roles = await _userManager.GetRolesAsync(user);
-
-
-            // Verify OTP
-            //var isOtpValid = await _otpService.ValidateOtpAsync(user.Id, loginRequest.Otp);
-            //if (!isOtpValid)
-            //    return _responseHandler.BadRequest<LoginResponse>("Invalid or expired OTP.");
 
             // Generate tokens
             var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
@@ -93,13 +83,13 @@ namespace ElAnis.DataAccess.Services.Auth
 
             return _responseHandler.Success(response, "Login successful.");
         }
-      
+
         public async Task<Response<ForgetPasswordResponse>> ForgotPasswordAsync(ForgetPasswordRequest model)
         {
             _logger.LogInformation("Starting ForgotPasswordAsync for Email: {Email}, Phone: {Phone}", model.Email, model.PhoneNumber);
 
-            // Find user by email or phone number
-            User? user = await FindUserByEmailOrPhoneAsync(model.Email, model.PhoneNumber);
+            // Find user by email or phone number using repository
+            User? user = await _unitOfWork.Users.FindByEmailOrPhoneAsync(model.Email, model.PhoneNumber);
 
             if (user == null)
             {
@@ -119,8 +109,8 @@ namespace ElAnis.DataAccess.Services.Auth
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send OTP email to user ID: {UserId}", user.Id);
-                //return _responseHandler.InternalServerError<ForgetPasswordResponse>("Failed to send OTP.");
             }
+
             var response = new ForgetPasswordResponse
             {
                 UserId = user.Id
@@ -128,6 +118,7 @@ namespace ElAnis.DataAccess.Services.Auth
 
             return _responseHandler.Success(response, "OTP sent to your email. Please use it to reset your password.");
         }
+
         public async Task<Response<ResetPasswordResponse>> ResetPasswordAsync(ResetPasswordRequest model)
         {
             _logger.LogInformation("Starting ResetPasswordAsync for User ID: {UserId}", model.UserId);
@@ -146,8 +137,8 @@ namespace ElAnis.DataAccess.Services.Auth
             {
                 _logger.LogWarning("Invalid or expired OTP for User ID: {UserId}", model.UserId);
                 return _responseHandler.BadRequest<ResetPasswordResponse>("Invalid or expired OTP.");
-
             }
+
             _logger.LogInformation("OTP is valid. Proceeding to reset password for User ID: {UserId}", user.Id);
 
             // Reset password
@@ -173,6 +164,7 @@ namespace ElAnis.DataAccess.Services.Auth
                 PhoneNumber = user.PhoneNumber,
                 Role = roles.FirstOrDefault() ?? "USER"
             };
+
             _logger.LogInformation("ResetPasswordAsync completed successfully for User ID: {UserId}", user.Id);
 
             return _responseHandler.Success(response, "Password reset successfully. Please log in with your new password.");
@@ -198,6 +190,7 @@ namespace ElAnis.DataAccess.Services.Auth
 
             return _responseHandler.Success(true, "Email verified successfully.");
         }
+
         public async Task<Response<string>> ResendOtpAsync(ResendOtpRequest resendOtpRequest)
         {
             var user = await _userManager.FindByIdAsync(resendOtpRequest.UserId);
@@ -214,24 +207,29 @@ namespace ElAnis.DataAccess.Services.Auth
             return _responseHandler.Success<string>(null, "OTP resent successfully. Please check your email.");
         }
 
-        public async Task<RefreshTokenResponse> RefreshTokenAsync(string refreshToken)
+        public async Task<Response<RefreshTokenResponse>> RefreshTokenAsync(string refreshToken)
         {
-            _logger.LogInformation("Starting RefreshTokenAsync for token: {TokenSnippet}", refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
+            _logger.LogInformation("Starting RefreshTokenAsync for token: {TokenSnippet}",
+                refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
 
             try
             {
                 var isValid = await _tokenStoreService.IsValidAsync(refreshToken);
                 if (!isValid)
                 {
-                    _logger.LogWarning("Invalid refresh token provided: {TokenSnippet}", refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
+                    _logger.LogWarning("Invalid refresh token provided: {TokenSnippet}",
+                        refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
                     throw new SecurityTokenException("Invalid refresh token");
                 }
 
-                var tokenEntry = await _context.UserRefreshTokens
-                    .FirstOrDefaultAsync(r => r.Token == refreshToken);
+                // Use repository to find refresh token
+                var tokenEntry = await _unitOfWork.Repository<UserRefreshToken>()
+                    .FindSingleAsync(r => r.Token == refreshToken);
+
                 if (tokenEntry == null)
                 {
-                    _logger.LogWarning("No refresh token entry found for token: {TokenSnippet}", refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
+                    _logger.LogWarning("No refresh token entry found for token: {TokenSnippet}",
+                        refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
                     throw new SecurityTokenException("Invalid refresh token");
                 }
 
@@ -247,61 +245,40 @@ namespace ElAnis.DataAccess.Services.Auth
 
                 _logger.LogInformation("Generating new access and refresh tokens for user: {UserId}", user.Id);
                 var userTokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
-                
+
                 await _tokenStoreService.SaveRefreshTokenAsync(user.Id, userTokens.RefreshToken);
                 _logger.LogInformation("New refresh token saved for user: {UserId}", user.Id);
 
-                return new RefreshTokenResponse
+                return _responseHandler.Success(new RefreshTokenResponse
                 {
                     AccessToken = userTokens.AccessToken,
                     RefreshToken = userTokens.RefreshToken,
-                };
+                }, "Token refreshed successfully");
             }
             catch (SecurityTokenException ex)
             {
-                _logger.LogError(ex, "Security token error during refresh token process for token: {TokenSnippet}", refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
+                _logger.LogError(ex, "Security token error during refresh token process for token: {TokenSnippet}",
+                    refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error during refresh token process for token: {TokenSnippet}", refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
+                _logger.LogError(ex, "Unexpected error during refresh token process for token: {TokenSnippet}",
+                    refreshToken.Substring(0, Math.Min(8, refreshToken.Length)));
                 throw;
             }
-        }
-
-        // Helpers methods 
-        private async Task<string?> CheckIfEmailOrPhoneExists(string email, string? phoneNumber)
-        {
-            if (await _userManager.FindByEmailAsync(email) != null)
-                return "Email is already registered.";
-            if (!string.IsNullOrEmpty(phoneNumber) && await _userManager.Users.AnyAsync(u => u.PhoneNumber == phoneNumber))
-                return "Phone number is already registered.";
-            return null;
-        }
-        private async Task<User?> FindUserByEmailOrPhoneAsync(string email, string phone)
-        {
-            if (!string.IsNullOrEmpty(email))
-                return await _userManager.FindByEmailAsync(email);
-            if (!string.IsNullOrEmpty(phone))
-                return await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone);
-            return null;
         }
 
         public async Task<Response<string>> LogoutAsync(ClaimsPrincipal userClaims)
         {
             try
             {
-                // Get user ID from claims
                 var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
-                {
                     return _responseHandler.Unauthorized<string>("User not authenticated");
-                }
 
-                // Invalidate all refresh tokens for this user
                 await _tokenStoreService.InvalidateOldTokensAsync(userId);
-
-                return _responseHandler.Success<string>(null,"Logged out successfully");
+                return _responseHandler.Success<string>(null, "Logged out successfully");
             }
             catch (Exception ex)
             {
@@ -313,28 +290,18 @@ namespace ElAnis.DataAccess.Services.Auth
         {
             try
             {
-                // Get user ID from claims
                 var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
-                {
                     return _responseHandler.Unauthorized<string>("User not authenticated");
-                }
 
-                // Find user
                 var user = await _userManager.FindByIdAsync(userId);
                 if (user == null)
-                {
                     return _responseHandler.NotFound<string>("User not found");
-                }
 
-                // Verify current password
                 var isCurrentPasswordValid = await _userManager.CheckPasswordAsync(user, request.CurrentPassword);
                 if (!isCurrentPasswordValid)
-                {
                     return _responseHandler.BadRequest<string>("Current password is incorrect");
-                }
 
-                // Change password
                 var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
                 if (!result.Succeeded)
                 {
@@ -342,10 +309,8 @@ namespace ElAnis.DataAccess.Services.Auth
                     return _responseHandler.BadRequest<string>(errors);
                 }
 
-                // Invalidate all existing refresh tokens for security
                 await _tokenStoreService.InvalidateOldTokensAsync(userId);
-
-                return _responseHandler.Success<string>(null,"Password changed successfully. Please login again.");
+                return _responseHandler.Success<string>(null, "Password changed successfully. Please login again.");
             }
             catch (Exception ex)
             {
@@ -353,228 +318,250 @@ namespace ElAnis.DataAccess.Services.Auth
             }
         }
 
-		public async Task<Response<RegisterResponse>> RegisterUserAsync(RegisterRequest registerRequest)
-		{
-			_logger.LogInformation("RegisterUserAsync started for Email: {Email}", registerRequest.Email);
+        public async Task<Response<RegisterResponse>> RegisterUserAsync(RegisterRequest registerRequest)
+        {
+            _logger.LogInformation("RegisterUserAsync started for Email: {Email}", registerRequest.Email);
 
-			var emailPhoneCheck = await CheckIfEmailOrPhoneExists(registerRequest.Email, registerRequest.PhoneNumber);
-			if (emailPhoneCheck != null)
-			{
-				_logger.LogWarning("Registration failed: {Reason}", emailPhoneCheck);
-				return _responseHandler.BadRequest<RegisterResponse>(emailPhoneCheck);
-			}
+            // Check if email or phone exists using repository
+            var emailExists = await _unitOfWork.Users.IsEmailExistsAsync(registerRequest.Email);
+            if (emailExists)
+            {
+                _logger.LogWarning("Registration failed: Email already exists");
+                return _responseHandler.BadRequest<RegisterResponse>("Email is already registered.");
+            }
 
-			using var transaction = await _context.Database.BeginTransactionAsync();
-			try
-			{
-				var user = new User
-				{
-					UserName = registerRequest.Email,
-					Email = registerRequest.Email,
-					PhoneNumber = registerRequest.PhoneNumber,
-					FirstName = registerRequest.FirstName ?? "",
-					LastName = registerRequest.LastName ?? ""
-				};
+            if (!string.IsNullOrEmpty(registerRequest.PhoneNumber))
+            {
+                var phoneExists = await _unitOfWork.Users.IsPhoneExistsAsync(registerRequest.PhoneNumber);
+                if (phoneExists)
+                {
+                    _logger.LogWarning("Registration failed: Phone already exists");
+                    return _responseHandler.BadRequest<RegisterResponse>("Phone number is already registered.");
+                }
+            }
 
-				var createUserResult = await _userManager.CreateAsync(user, registerRequest.Password);
-				if (!createUserResult.Succeeded)
-				{
-					var errors = createUserResult.Errors.Select(e => e.Description).ToList();
-					_logger.LogWarning("User creation failed for Email: {Email}. Errors: {Errors}",
-						registerRequest.Email, string.Join(", ", errors));
-					return _responseHandler.BadRequest<RegisterResponse>(string.Join(", ", errors));
-				}
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var user = new User
+                {
+                    UserName = registerRequest.Email,
+                    Email = registerRequest.Email,
+                    PhoneNumber = registerRequest.PhoneNumber,
+                    FirstName = registerRequest.FirstName ?? "",
+                    LastName = registerRequest.LastName ?? ""
+                };
 
-				// Assign USER role
-				await _userManager.AddToRoleAsync(user, "USER");
-				_logger.LogInformation("User created and role 'USER' assigned. ID: {UserId}", user.Id);
+                var createUserResult = await _userManager.CreateAsync(user, registerRequest.Password);
+                if (!createUserResult.Succeeded)
+                {
+                    var errors = createUserResult.Errors.Select(e => e.Description).ToList();
+                    _logger.LogWarning("User creation failed for Email: {Email}. Errors: {Errors}",
+                        registerRequest.Email, string.Join(", ", errors));
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.BadRequest<RegisterResponse>(string.Join(", ", errors));
+                }
 
-				// Create user preferences
-				var preferences = new UserPreferences { UserId = user.Id };
-				_context.UserPreferences.Add(preferences);
+                // Assign USER role
+                await _userManager.AddToRoleAsync(user, "USER");
+                _logger.LogInformation("User created and role 'USER' assigned. ID: {UserId}", user.Id);
 
-				var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
-				var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
+                // Create user preferences using repository
+                var preferences = new UserPreferences { UserId = user.Id };
+                await _unitOfWork.Repository<UserPreferences>().AddAsync(preferences);
 
-				await _emailService.SendOtpEmailAsync(user, otp);
+                var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
+                var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
 
-				await _context.SaveChangesAsync();
-				await transaction.CommitAsync();
+                await _emailService.SendOtpEmailAsync(user, otp);
 
-				var response = new RegisterResponse
-				{
-					Email = registerRequest.Email,
-					Id = user.Id,
-					IsEmailConfirmed = false,
-					PhoneNumber = registerRequest.PhoneNumber,
-					Role = "USER",
-					AccessToken = tokens.AccessToken,
-					RefreshToken = tokens.RefreshToken
-				};
+                await _unitOfWork.CommitAsync();
 
-				return _responseHandler.Created(response, "User registered successfully. Please verify your email.");
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				_logger.LogError(ex, "Error during RegisterUserAsync for Email: {Email}", registerRequest.Email);
-				return _responseHandler.BadRequest<RegisterResponse>("An error occurred during registration.");
-			}
-		}
+                var response = new RegisterResponse
+                {
+                    Email = registerRequest.Email,
+                    Id = user.Id,
+                    IsEmailConfirmed = false,
+                    PhoneNumber = registerRequest.PhoneNumber,
+                    Role = "USER",
+                    AccessToken = tokens.AccessToken,
+                    RefreshToken = tokens.RefreshToken
+                };
 
+                return _responseHandler.Created(response, "User registered successfully. Please verify your email.");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                _logger.LogError(ex, "Error during RegisterUserAsync for Email: {Email}", registerRequest.Email);
+                return _responseHandler.BadRequest<RegisterResponse>("An error occurred during registration.");
+            }
+        }
 
-		public async Task<Response<ServiceProviderApplicationResponse>> RegisterServiceProviderAsync(RegisterServiceProviderRequest request)
-		{
-			_logger.LogInformation("RegisterServiceProviderAsync started for Email: {Email}", request.Email);
+        public async Task<Response<ServiceProviderApplicationResponse>> RegisterServiceProviderAsync(RegisterServiceProviderRequest request)
+        {
+            _logger.LogInformation("RegisterServiceProviderAsync started for Email: {Email}", request.Email);
 
-			var emailPhoneCheck = await CheckIfEmailOrPhoneExists(request.Email, request.PhoneNumber);
-			if (emailPhoneCheck != null)
-			{
-				return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(emailPhoneCheck);
-			}
+            // Check if email or phone exists using repository
+            var emailExists = await _unitOfWork.Users.IsEmailExistsAsync(request.Email);
+            if (emailExists)
+                return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Email is already registered.");
 
-			using var transaction = await _context.Database.BeginTransactionAsync();
-			try
-			{
-				// Create user account with USER role first (will be upgraded to SERVICE_PROVIDER after approval)
-				var user = new User
-				{
-					UserName = request.Email,
-					Email = request.Email,
-					PhoneNumber = request.PhoneNumber,
-					FirstName = request.FirstName,
-					LastName = request.LastName,
-					Address = request.Address,
-					DateOfBirth = request.DateOfBirth
-				};
+            if (!string.IsNullOrEmpty(request.PhoneNumber))
+            {
+                var phoneExists = await _unitOfWork.Users.IsPhoneExistsAsync(request.PhoneNumber);
+                if (phoneExists)
+                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Phone number is already registered.");
+            }
 
-				var createUserResult = await _userManager.CreateAsync(user, request.Password);
-				if (!createUserResult.Succeeded)
-				{
-					var errors = createUserResult.Errors.Select(e => e.Description).ToList();
-					return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(string.Join(", ", errors));
-				}
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                // Create user account with USER role first
+                var user = new User
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    PhoneNumber = request.PhoneNumber,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Address = request.Address,
+                    DateOfBirth = request.DateOfBirth
+                };
 
-				// Assign USER role temporarily
-				await _userManager.AddToRoleAsync(user, "USER");
+                var createUserResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createUserResult.Succeeded)
+                {
+                    var errors = createUserResult.Errors.Select(e => e.Description).ToList();
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(string.Join(", ", errors));
+                }
 
-				// Handle file uploads (you'll need to implement file upload service)
-				string? idDocumentPath = null;
-				string? certificatePath = null;
+                // Assign USER role temporarily
+                await _userManager.AddToRoleAsync(user, "USER");
 
-				if (request.IdDocument != null)
-				{
-					// idDocumentPath = await _fileUploadService.UploadFileAsync(request.IdDocument, "documents");
-				}
+                // Handle file uploads (implement as needed)
+                string? idDocumentPath = null;
+                string? certificatePath = null;
 
-				if (request.Certificate != null)
-				{
-					// certificatePath = await _fileUploadService.UploadFileAsync(request.Certificate, "certificates");
-				}
+                if (request.IdDocument != null)
+                {
+                    // idDocumentPath = await _fileUploadService.UploadFileAsync(request.IdDocument, "documents");
+                }
 
-				// Create service provider application
-				var application = new ServiceProviderApplication
-				{
-					UserId = user.Id,
-					FirstName = request.FirstName,
-					LastName = request.LastName,
-					PhoneNumber = request.PhoneNumber,
-					Address = request.Address,
-					DateOfBirth = request.DateOfBirth,
-					Bio = request.Bio,
-					NationalId = request.NationalId,
-					Experience = request.Experience,
-					HourlyRate = request.HourlyRate,
-					IdDocumentPath = idDocumentPath ?? "",
-					CertificatePath = certificatePath ?? "",
-					SelectedCategories = request.SelectedCategoryIds,
-					Status = ServiceProviderApplicationStatus.Pending
-				};
+                if (request.Certificate != null)
+                {
+                    // certificatePath = await _fileUploadService.UploadFileAsync(request.Certificate, "certificates");
+                }
 
-				_context.ServiceProviderApplications.Add(application);
+                // Create service provider application using repository
+                var application = new ServiceProviderApplication
+                {
+                    UserId = user.Id,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    PhoneNumber = request.PhoneNumber,
+                    Address = request.Address,
+                    DateOfBirth = request.DateOfBirth,
+                    Bio = request.Bio,
+                    NationalId = request.NationalId,
+                    Experience = request.Experience,
+                    HourlyRate = request.HourlyRate,
+                    IdDocumentPath = idDocumentPath ?? "",
+                    CertificatePath = certificatePath ?? "",
+                    SelectedCategories = request.SelectedCategoryIds,
+                    Status = ServiceProviderApplicationStatus.Pending
+                };
 
-				// Send notification OTP
-				var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
-				await _emailService.SendOtpEmailAsync(user, otp);
+                await _unitOfWork.ServiceProviderApplications.AddAsync(application);
 
-				await _context.SaveChangesAsync();
-				await transaction.CommitAsync();
+                // Send notification OTP
+                var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
+                await _emailService.SendOtpEmailAsync(user, otp);
 
-				var response = new ServiceProviderApplicationResponse
-				{
-					ApplicationId = application.Id,
-					UserId = user.Id,
-					Email = user.Email ?? "",
-					Message = "Service provider application submitted successfully. Please verify your email and wait for admin approval.",
-					Status = application.Status,
-					CreatedAt = application.CreatedAt
-				};
+                await _unitOfWork.CommitAsync();
 
-				return _responseHandler.Created(response, "Application submitted successfully.");
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				_logger.LogError(ex, "Error during RegisterServiceProviderAsync for Email: {Email}", request.Email);
-				return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("An error occurred during registration.");
-			}
-		}
+                var response = new ServiceProviderApplicationResponse
+                {
+                    ApplicationId = application.Id,
+                    UserId = user.Id,
+                    Email = user.Email ?? "",
+                    Message = "Service provider application submitted successfully. Please verify your email and wait for admin approval.",
+                    Status = application.Status,
+                    CreatedAt = application.CreatedAt
+                };
 
-		public async Task<Response<RegisterResponse>> CreateAdminAsync(AdminRegisterRequest request)
-		{
-			_logger.LogInformation("CreateAdminAsync started for Email: {Email}", request.Email);
+                return _responseHandler.Created(response, "Application submitted successfully.");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                _logger.LogError(ex, "Error during RegisterServiceProviderAsync for Email: {Email}", request.Email);
+                return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("An error occurred during registration.");
+            }
+        }
 
-			var emailPhoneCheck = await CheckIfEmailOrPhoneExists(request.Email, request.PhoneNumber);
-			if (emailPhoneCheck != null)
-			{
-				return _responseHandler.BadRequest<RegisterResponse>(emailPhoneCheck);
-			}
+        public async Task<Response<RegisterResponse>> CreateAdminAsync(AdminRegisterRequest request)
+        {
+            _logger.LogInformation("CreateAdminAsync started for Email: {Email}", request.Email);
 
-			using var transaction = await _context.Database.BeginTransactionAsync();
-			try
-			{
-				var user = new User
-				{
-					UserName = request.Email,
-					Email = request.Email,
-					PhoneNumber = request.PhoneNumber,
-					FirstName = request.FirstName,
-					LastName = request.LastName,
-					EmailConfirmed = true // Auto-confirm admin accounts
-				};
+            // Check if email or phone exists using repository
+            var emailExists = await _unitOfWork.Users.IsEmailExistsAsync(request.Email);
+            if (emailExists)
+                return _responseHandler.BadRequest<RegisterResponse>("Email is already registered.");
 
-				var createUserResult = await _userManager.CreateAsync(user, request.Password);
-				if (!createUserResult.Succeeded)
-				{
-					var errors = createUserResult.Errors.Select(e => e.Description).ToList();
-					return _responseHandler.BadRequest<RegisterResponse>(string.Join(", ", errors));
-				}
+            if (!string.IsNullOrEmpty(request.PhoneNumber))
+            {
+                var phoneExists = await _unitOfWork.Users.IsPhoneExistsAsync(request.PhoneNumber);
+                if (phoneExists)
+                    return _responseHandler.BadRequest<RegisterResponse>("Phone number is already registered.");
+            }
 
-				// Assign ADMIN role
-				await _userManager.AddToRoleAsync(user, "ADMIN");
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var user = new User
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    PhoneNumber = request.PhoneNumber,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    EmailConfirmed = true // Auto-confirm admin accounts
+                };
 
-				await _context.SaveChangesAsync();
-				await transaction.CommitAsync();
+                var createUserResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createUserResult.Succeeded)
+                {
+                    var errors = createUserResult.Errors.Select(e => e.Description).ToList();
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.BadRequest<RegisterResponse>(string.Join(", ", errors));
+                }
 
-				var response = new RegisterResponse
-				{
-					Email = request.Email,
-					Id = user.Id,
-					IsEmailConfirmed = true,
-					PhoneNumber = request.PhoneNumber,
-					Role = "ADMIN",
-					AccessToken = "",
-					RefreshToken = ""
-				};
+                // Assign ADMIN role
+                await _userManager.AddToRoleAsync(user, "ADMIN");
 
-				return _responseHandler.Created(response, "Admin account created successfully.");
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				_logger.LogError(ex, "Error during CreateAdminAsync for Email: {Email}", request.Email);
-				return _responseHandler.BadRequest<RegisterResponse>("An error occurred during admin creation.");
-			}
-		}
-	}
+                await _unitOfWork.CommitAsync();
+
+                var response = new RegisterResponse
+                {
+                    Email = request.Email,
+                    Id = user.Id,
+                    IsEmailConfirmed = true,
+                    PhoneNumber = request.PhoneNumber,
+                    Role = "ADMIN",
+                    AccessToken = "",
+                    RefreshToken = ""
+                };
+
+                return _responseHandler.Created(response, "Admin account created successfully.");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                _logger.LogError(ex, "Error during CreateAdminAsync for Email: {Email}", request.Email);
+                return _responseHandler.BadRequest<RegisterResponse>("An error occurred during admin creation.");
+            }
+        }
+    }
 }

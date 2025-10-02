@@ -19,17 +19,23 @@ namespace ElAnis.DataAccess.Services.OAuth
         private readonly ITokenStoreService _tokenService;
         private readonly ResponseHandler _responseHandler;
         private readonly GoogleAuthSettings _settings;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public AuthGoogleService(UserManager<User> userManager, ITokenStoreService tokenService, ResponseHandler responseHandler, IOptions<GoogleAuthSettings> options)
+        public AuthGoogleService(
+            UserManager<User> userManager,
+            ITokenStoreService tokenService,
+            ResponseHandler responseHandler,
+            IOptions<GoogleAuthSettings> options,
+            IUnitOfWork unitOfWork)
         {
             _userManager = userManager;
             _tokenService = tokenService;
-
             _responseHandler = responseHandler;
             _settings = options.Value;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<Entities.Shared.Bases.Response<GoogleRegisterResponse>> AuthenticateWithGoogleAsync(string idToken)
+        public async Task<Response<GoogleRegisterResponse>> AuthenticateWithGoogleAsync(string idToken)
         {
             try
             {
@@ -40,7 +46,7 @@ namespace ElAnis.DataAccess.Services.OAuth
                     throw new UnauthorizedAccessException("Invalid Google token");
 
                 // Check if the user already exists by email
-                var user = await _userManager.Users.FirstOrDefaultAsync(user => user.Email == payload.Email);
+                var user = await _unitOfWork.Users.FindByEmailAsync(payload.Email);
 
                 // If user doesn't exist, create a new user
                 if (user == null)
@@ -49,7 +55,9 @@ namespace ElAnis.DataAccess.Services.OAuth
                     {
                         UserName = payload.Email.Split('@')[0],
                         Email = payload.Email,
-                        PhoneNumber = "N/A"
+                        PhoneNumber = "N/A",
+                        FirstName = payload.GivenName ?? "",
+                        LastName = payload.FamilyName ?? ""
                     };
 
                     var result = await _userManager.CreateAsync(user);
@@ -60,6 +68,7 @@ namespace ElAnis.DataAccess.Services.OAuth
                     }
 
                     await _userManager.AddToRoleAsync(user, "USER");
+
                     // Generate token for the user
                     var userTokens = await _tokenService.GenerateAndStoreTokensAsync(user.Id, user);
 
@@ -74,12 +83,10 @@ namespace ElAnis.DataAccess.Services.OAuth
                         Email = payload.Email,
                     };
                     return _responseHandler.Success(response, "Login successful.");
-
                 }
                 else
                 {
-                    //if user != null its mean the user is found or already signed in with google
-                    // Generate token for the user
+                    // User already exists - login
                     var userTokens = await _tokenService.GenerateAndStoreTokensAsync(user.Id, user);
 
                     var userRoles = await _userManager.GetRolesAsync(user);
@@ -89,7 +96,7 @@ namespace ElAnis.DataAccess.Services.OAuth
                         Roles = userRoles.FirstOrDefault(),
                         AccessToken = userTokens.AccessToken,
                         RefreshToken = userTokens.RefreshToken,
-                        UserName = payload.Email.Split('@')[0],
+                        UserName = user.UserName ?? payload.Email.Split('@')[0],
                         Email = payload.Email
                     };
                     return _responseHandler.Success(response, "Login successful.");
@@ -101,7 +108,7 @@ namespace ElAnis.DataAccess.Services.OAuth
             }
             catch (UserCreationException)
             {
-                throw; // To know when exception thrown from and when ?
+                throw;
             }
             catch (Exception ex)
             {

@@ -29,82 +29,92 @@ namespace ElAnis.API.Extensions
                     .Enrich.WithMachineName();
             });
         }
-		public static IServiceCollection AddAuthenticationAndAuthorization(this IServiceCollection services, IConfiguration configuration)
-		{
-			services.AddIdentity<User, Role>(opt =>
-			{
-				opt.Password.RequireLowercase = true;
-				opt.Password.RequireUppercase = true;
-				opt.Password.RequiredLength = 8;
-				opt.Password.RequireDigit = true;
-				opt.Password.RequireNonAlphanumeric = true;
-			})
-			.AddEntityFrameworkStores<AuthContext>()
-			.AddRoleManager<RoleManager<Role>>()
-			.AddUserManager<UserManager<User>>()
-			.AddDefaultTokenProviders();
 
-			services.AddAuthentication(opt =>
-			{
-				opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-				opt.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-				opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-				opt.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
-				opt.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
-				opt.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
-			})
-			.AddJwtBearer(options =>
-			{
-				var jwtSettings = configuration.GetSection("JWT").Get<JwtSettings>();
-				options.TokenValidationParameters = new TokenValidationParameters
-				{
-					ValidateIssuer = !string.IsNullOrEmpty(jwtSettings.Issuer),
-					ValidIssuer = jwtSettings.Issuer,
-					ValidateAudience = !string.IsNullOrEmpty(jwtSettings.Audience),
-					ValidAudience = jwtSettings.Audience,
-					ValidateIssuerSigningKey = true,
-					IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey))
-				};
-			});
+        // 🔹 تفعيل الـ CORS
+        public static IServiceCollection AddCorsPolicy(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", builder =>
+                {
+                    builder
+                        .AllowAnyOrigin() // لو عاوز تسمح لأي دومين
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+                });
+            });
+            return services;
+        }
 
-			// 👇 هنا تحط الـ Authorization Policies
-			services.AddAuthorization(options =>
-			{
-				options.AddPolicy("AdminOnly", policy =>
-					policy.RequireRole("Admin"));
+        public static IServiceCollection AddAuthenticationAndAuthorization(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddIdentity<User, Role>(opt =>
+            {
+                opt.Password.RequireLowercase = true;
+                opt.Password.RequireUppercase = true;
+                opt.Password.RequiredLength = 8;
+                opt.Password.RequireDigit = true;
+                opt.Password.RequireNonAlphanumeric = true;
+            })
+            .AddEntityFrameworkStores<AuthContext>()
+            .AddRoleManager<RoleManager<Role>>()
+            .AddUserManager<UserManager<User>>()
+            .AddDefaultTokenProviders();
 
-				options.AddPolicy("ServiceProviderOnly", policy =>
-					policy.RequireRole("Provider"));
+            services.AddAuthentication(opt =>
+            {
+                opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                opt.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                opt.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
+                opt.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+                opt.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                var jwtSettings = configuration.GetSection("JWT").Get<JwtSettings>();
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = !string.IsNullOrEmpty(jwtSettings.Issuer),
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidateAudience = !string.IsNullOrEmpty(jwtSettings.Audience),
+                    ValidAudience = jwtSettings.Audience,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey))
+                };
+            });
 
-				options.AddPolicy("UserOnly", policy =>
-					policy.RequireRole("User"));
+            // 👇 هنا تحط الـ Authorization Policies
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("AdminOnly", policy =>
+                    policy.RequireRole("Admin"));
 
-				options.AddPolicy("ServiceProviderOrAdmin", policy =>
-					policy.RequireRole("Provider", "Admin"));
+                options.AddPolicy("ServiceProviderOnly", policy =>
+                    policy.RequireRole("Provider"));
 
-				options.AddPolicy("AuthenticatedUser", policy =>
-					policy.RequireAuthenticatedUser());
+                options.AddPolicy("UserOnly", policy =>
+                    policy.RequireRole("User"));
 
-				options.AddPolicy("VerifiedServiceProvider", policy =>
-					policy.RequireRole("Provider")
-						  .RequireClaim("ServiceProviderStatus", "Approved"));
-			});
+                options.AddPolicy("ServiceProviderOrAdmin", policy =>
+                    policy.RequireRole("Provider", "Admin"));
 
-			return services;
-		}
+                options.AddPolicy("AuthenticatedUser", policy =>
+                    policy.RequireAuthenticatedUser());
 
+                options.AddPolicy("VerifiedServiceProvider", policy =>
+                    policy.RequireRole("Provider")
+                          .RequireClaim("ServiceProviderStatus", "Approved"));
+            });
 
+            return services;
+        }
 
-		public static IServiceCollection AddSwagger(this IServiceCollection services)
+        public static IServiceCollection AddSwagger(this IServiceCollection services)
         {
             services.AddSwaggerGen(option =>
             {
                 option.SwaggerDoc("v1", new OpenApiInfo { Title = "MV-ElAnis", Version = "v1" });
-
-                // For XML Comments we will use it later
-                //var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                //var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                //option.IncludeXmlComments(xmlPath);
 
                 option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
@@ -135,21 +145,18 @@ namespace ElAnis.API.Extensions
             return services;
         }
 
+        public static IServiceCollection AddFluentValidation(this IServiceCollection services)
+        {
+            services.AddControllers()
+                .AddFluentValidation(fv =>
+                {
+                    fv.RegisterValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
+                });
 
+            return services;
+        }
 
-		public static IServiceCollection AddFluentValidation(this IServiceCollection services)
-		{
-			services.AddControllers()
-				.AddFluentValidation(fv =>
-				{
-					// هيشوف كل الـ Validators جوه الـ Assembly ويضيفهم
-					fv.RegisterValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
-				});
-
-			return services;
-		}
-
-		public static IServiceCollection AddResendOtpRateLimiter(this IServiceCollection services)
+        public static IServiceCollection AddResendOtpRateLimiter(this IServiceCollection services)
         {
             services.AddRateLimiter(options =>
             {

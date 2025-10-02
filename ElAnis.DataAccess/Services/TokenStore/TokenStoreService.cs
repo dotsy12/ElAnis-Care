@@ -18,76 +18,83 @@ namespace ElAnis.DataAccess.Services.Token
     public class TokenStoreService : ITokenStoreService
     {
         private readonly SymmetricSecurityKey _symmetricSecurityKey;
-        private readonly UserManager<User> _userManager; // To get user roles 
+        private readonly UserManager<User> _userManager;
         private readonly JwtSettings _jwtSettings;
-        private readonly AuthContext _authContext;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public TokenStoreService(IOptions<JwtSettings> jwtOptions, UserManager<User> userManager, AuthContext authContext)
+        public TokenStoreService(
+            IOptions<JwtSettings> jwtOptions,
+            UserManager<User> userManager,
+            IUnitOfWork unitOfWork)
         {
             _jwtSettings = jwtOptions.Value ?? throw new ArgumentNullException(nameof(jwtOptions));
             _userManager = userManager;
+            _unitOfWork = unitOfWork;
+
             if (string.IsNullOrEmpty(_jwtSettings.SigningKey))
             {
                 throw new ArgumentException("JWT SigningKey is not configured.");
             }
             _symmetricSecurityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SigningKey));
-            _authContext = authContext;
         }
-		// تحديث CreateAccessTokenAsync method في TokenStoreService
-		public async Task<string> CreateAccessTokenAsync(User appUser)
-		{
-			var roles = await _userManager.GetRolesAsync(appUser);
-			var Claims = new List<Claim>
-	{
-		new Claim(ClaimTypes.NameIdentifier, appUser.Id.ToString()),
-		new Claim(ClaimTypes.Email, appUser.Email ?? ""),
-		new Claim(ClaimTypes.GivenName, appUser.UserName ?? ""),
-		new Claim("UserId", appUser.Id.ToString()),
-		new Claim("FullName", $"{appUser.FirstName} {appUser.LastName}".Trim())
-	};
 
-			// Add roles
-			foreach (var role in roles)
-			{
-				Claims.Add(new Claim(ClaimTypes.Role, role));
-			}
+        public async Task<string> CreateAccessTokenAsync(User appUser)
+        {
+            var roles = await _userManager.GetRolesAsync(appUser);
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, appUser.Id.ToString()),
+                new Claim(ClaimTypes.Email, appUser.Email ?? ""),
+                new Claim(ClaimTypes.GivenName, appUser.UserName ?? ""),
+                new Claim("UserId", appUser.Id.ToString()),
+                new Claim("FullName", $"{appUser.FirstName} {appUser.LastName}".Trim())
+            };
 
-			// Add ServiceProvider specific claims if user is a service provider
-			if (roles.Contains("SERVICE_PROVIDER"))
-			{
-				var serviceProvider = await _authContext.ServiceProviderProfiles
-					.FirstOrDefaultAsync(sp => sp.UserId == appUser.Id);
+            // Add roles
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
-				if (serviceProvider != null)
-				{
-					Claims.Add(new Claim("ServiceProviderId", serviceProvider.Id.ToString()));
-					Claims.Add(new Claim("ServiceProviderStatus", serviceProvider.Status.ToString()));
-					Claims.Add(new Claim("IsAvailable", serviceProvider.IsAvailable.ToString()));
-				}
-			}
+            // Add ServiceProvider specific claims if user is a service provider
+            if (roles.Contains("SERVICE_PROVIDER") || roles.Contains("PROVIDER"))
+            {
+                var serviceProvider = await _unitOfWork.ServiceProviderProfiles
+                    .GetByUserIdAsync(appUser.Id);
 
-			var creds = new SigningCredentials(_symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
-			var TokenDescriptor = new SecurityTokenDescriptor
-			{
-				Subject = new ClaimsIdentity(Claims),
-				Expires = DateTime.Now.AddDays(7),
-				SigningCredentials = creds,
-				Issuer = _jwtSettings.Issuer,
-				Audience = _jwtSettings.Audience,
-			};
+                if (serviceProvider != null)
+                {
+                    claims.Add(new Claim("ServiceProviderId", serviceProvider.Id.ToString()));
+                    claims.Add(new Claim("ServiceProviderStatus", serviceProvider.Status.ToString()));
+                    claims.Add(new Claim("IsAvailable", serviceProvider.IsAvailable.ToString()));
+                }
+            }
 
-			var tokenHandler = new JwtSecurityTokenHandler();
-			var token = tokenHandler.CreateToken(TokenDescriptor);
-			return tokenHandler.WriteToken(token);
-		}
-		// Refresh Token Methods
-		public string GenerateRefreshToken()
+            var creds = new SigningCredentials(_symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(7),
+                SigningCredentials = creds,
+                Issuer = _jwtSettings.Issuer,
+                Audience = _jwtSettings.Audience,
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+
+        public string GenerateRefreshToken()
         {
             return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         }
+
         public async Task SaveRefreshTokenAsync(string userId, string refreshToken)
         {
-            await _authContext.UserRefreshTokens.AddAsync(new UserRefreshToken
+            var userRefreshTokenRepo = _unitOfWork.Repository<UserRefreshToken>();
+
+            await userRefreshTokenRepo.AddAsync(new UserRefreshToken
             {
                 UserId = userId,
                 Token = refreshToken,
@@ -95,29 +102,38 @@ namespace ElAnis.DataAccess.Services.Token
                 IsUsed = false
             });
 
-            await _authContext.SaveChangesAsync();
+            await _unitOfWork.CompleteAsync();
         }
+
         public async Task InvalidateOldTokensAsync(string userId)
         {
-            var tokens = await _authContext.UserRefreshTokens
-                .Where(r => r.UserId == userId)
-                .ToListAsync();
+            var userRefreshTokenRepo = _unitOfWork.Repository<UserRefreshToken>();
 
-            _authContext.UserRefreshTokens.RemoveRange(tokens);
-            await _authContext.SaveChangesAsync();
+            var tokens = await userRefreshTokenRepo.FindAsync(r => r.UserId == userId);
+
+            if (tokens.Any())
+            {
+                userRefreshTokenRepo.DeleteRange(tokens);
+                await _unitOfWork.CompleteAsync();
+            }
         }
+
         public async Task<bool> IsValidAsync(string refreshToken)
         {
-            return await _authContext.UserRefreshTokens
-                .AnyAsync(r => r.Token == refreshToken && !r.IsUsed && r.ExpiryDateUtc > DateTime.UtcNow);
+            var userRefreshTokenRepo = _unitOfWork.Repository<UserRefreshToken>();
+
+            return await userRefreshTokenRepo.AnyAsync(r =>
+                r.Token == refreshToken &&
+                !r.IsUsed &&
+                r.ExpiryDateUtc > DateTime.UtcNow);
         }
-        
+
         public async Task<(string AccessToken, string RefreshToken)> GenerateAndStoreTokensAsync(string userId, User user)
         {
-                var accessToken = await CreateAccessTokenAsync(user);
-                var refreshToken = GenerateRefreshToken();
-                await SaveRefreshTokenAsync(userId, refreshToken);
-            return (accessToken, refreshToken);   
+            var accessToken = await CreateAccessTokenAsync(user);
+            var refreshToken = GenerateRefreshToken();
+            await SaveRefreshTokenAsync(userId, refreshToken);
+            return (accessToken, refreshToken);
         }
     }
 }
