@@ -1,4 +1,4 @@
-# Authentication System
+# ElAnis System
 
 A comprehensive ASP.NET Core authentication system with JWT tokens, OTP verification, Google OAuth integration, and modern security practices.
 
