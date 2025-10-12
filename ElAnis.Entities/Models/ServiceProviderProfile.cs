@@ -32,9 +32,14 @@ namespace ElAnis.Entities.Models
 		public DateTime? ApprovedAt { get; set; }
 		public string? RejectionReason { get; set; }
 
-		// Navigation Properties
-		public ICollection<ServiceProviderCategory> Categories { get; set; } = new List<ServiceProviderCategory>();
+        // Navigation Properties
+        public ICollection<WithdrawalRequest> WithdrawalRequests { get; set; } = new List<WithdrawalRequest>();
+
+        public ICollection<ServiceProviderCategory> Categories { get; set; } = new List<ServiceProviderCategory>();
 		public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
+
 		public ICollection<Review> Reviews { get; set; } = new List<Review>();
+
 	}
+
 }
