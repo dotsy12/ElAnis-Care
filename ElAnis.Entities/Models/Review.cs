@@ -1,28 +1,39 @@
 ﻿using ElAnis.Entities.Models.Auth.Identity;
+using ElAnis.Utilities.Enum;
 using System.ComponentModel.DataAnnotations;
 
 namespace ElAnis.Entities.Models
 {
 	public class Review
 	{
-		public Guid Id { get; set; }
+        public Guid Id { get; set; }
 
-		// User اللي عامل التقييم (العميل)
-		public string ClientUserId { get; set; } = null!;
-		public User Client { get; set; } = null!;
+        // الربط بطلب الخدمة
+        public Guid ServiceRequestId { get; set; }
+        public ServiceRequest ServiceRequest { get; set; } = null!;
 
-		// User اللي باخد التقييم (مقدم الخدمة)
-		public string ServiceProviderUserId { get; set; } = null!;
-		public User ServiceProvider { get; set; } = null!;
-		public Guid ServiceRequestId { get; set; } // بدل int
-		public ServiceRequest ServiceRequest { get; set; } = null!;
+        // من الذي كتب التقييم؟
+        public string ReviewerUserId { get; set; } = null!;
+        public User ReviewerUser { get; set; } = null!;
 
-		[Range(1, 5)]
-		public int Rating { get; set; } // 1-5
+        // من الذي تم تقييمه؟
+        public string ReviewedUserId { get; set; } = null!;
+        public User ReviewedUser { get; set; } = null!;
 
-		[MaxLength(1000)]
-		public string? Comment { get; set; }
+        public ReviewerType ReviewerType { get; set; }
 
-		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-	}
+        // تفاصيل التقييم
+        public int Rating { get; set; }  // 1–5 نجوم
+        public string? Comment { get; set; }
+        public string? Tags { get; set; } // JSON array ["ملتزم", "محترف", ...]
+
+        // المراجعة والتحقق
+        public bool IsVerified { get; set; } = true;
+        public bool IsVisible { get; set; } = true;
+        public bool AdminHidden { get; set; } = false;
+        public string? HiddenReason { get; set; }
+
+        // الوقت
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
 }
