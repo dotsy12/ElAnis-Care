@@ -113,8 +113,9 @@ namespace ElAnis.DataAccess.Services.Admin
                 return _responseHandler.ServerError<ServiceProviderApplicationDetailDto>("Error retrieving application details");
             }
         }
-
-        public async Task<Response<string>> ApproveServiceProviderApplicationAsync(Guid applicationId, ClaimsPrincipal adminClaims)
+        public async Task<Response<string>> ApproveServiceProviderApplicationAsync(
+            Guid applicationId,
+            ClaimsPrincipal adminClaims)
         {
             try
             {
@@ -139,18 +140,15 @@ namespace ElAnis.DataAccess.Services.Admin
                     return _responseHandler.BadRequest<string>("Application has already been reviewed");
                 }
 
-                // Update application status
+                // ✅ 1. Update application status
                 application.Status = ServiceProviderApplicationStatus.Approved;
                 application.ReviewedAt = DateTime.UtcNow;
                 application.ReviewedById = adminId;
                 _unitOfWork.ServiceProviderApplications.Update(application);
 
-                // Change user role
                 var user = application.User;
-                await _userManager.RemoveFromRoleAsync(user, "USER");
-                await _userManager.AddToRoleAsync(user, "PROVIDER");
 
-                // Create ServiceProviderProfile
+                // ✅ 2. Create ServiceProviderProfile
                 var serviceProviderProfile = new ServiceProviderProfile
                 {
                     UserId = user.Id,
@@ -160,14 +158,15 @@ namespace ElAnis.DataAccess.Services.Admin
                     HourlyRate = application.HourlyRate,
                     IdDocumentPath = application.IdDocumentPath,
                     CertificatePath = application.CertificatePath,
-                    Status = ServiceProviderStatus.Approved,
+                    CVPath = application.CVPath,
+                    Status = ServiceProviderStatus.Approved, // 👈 مهم جداً
                     IsAvailable = true,
                     ApprovedAt = DateTime.UtcNow
                 };
 
                 await _unitOfWork.ServiceProviderProfiles.AddAsync(serviceProviderProfile);
 
-                // Handle categories
+                // ✅ 3. Handle categories
                 if (application.SelectedCategories != null && application.SelectedCategories.Count > 0)
                 {
                     try
@@ -196,8 +195,14 @@ namespace ElAnis.DataAccess.Services.Admin
 
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation("Service provider application {ApplicationId} approved by admin {AdminId}", applicationId, adminId);
-                return _responseHandler.Success<string>(null, "Application approved successfully");
+                _logger.LogInformation(
+                    "Service provider application {ApplicationId} approved by admin {AdminId}. " +
+                    "User must LOGIN AGAIN to get updated token with ServiceProviderStatus claim.",
+                    applicationId, adminId);
+
+                return _responseHandler.Success<string>(
+                    null,
+                    "Application approved successfully. User must login again to access dashboard.");
             }
             catch (Exception ex)
             {
@@ -206,7 +211,6 @@ namespace ElAnis.DataAccess.Services.Admin
                 return _responseHandler.ServerError<string>("Error approving application");
             }
         }
-
         public async Task<Response<string>> RejectServiceProviderApplicationAsync(Guid applicationId, string rejectionReason, ClaimsPrincipal adminClaims)
         {
             try

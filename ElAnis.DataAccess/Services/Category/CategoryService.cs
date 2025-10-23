@@ -30,7 +30,7 @@ namespace ElAnis.DataAccess.Services.Category
                 {
                     Id = c.Id,
                     Name = c.Name,
-                    NameEn = c.NameEn,
+                  
                     Description = c.Description,
                     Icon = c.Icon,
                     IsActive = c.IsActive,
@@ -56,7 +56,7 @@ namespace ElAnis.DataAccess.Services.Category
                 {
                     Id = c.Id,
                     Name = c.Name,
-                    NameEn = c.NameEn,
+                 
                     Description = c.Description,
                     Icon = c.Icon,
                     IsActive = c.IsActive,
@@ -85,7 +85,7 @@ namespace ElAnis.DataAccess.Services.Category
                 {
                     Id = category.Id,
                     Name = category.Name,
-                    NameEn = category.NameEn,
+                  
                     Description = category.Description,
                     Icon = category.Icon,
                     IsActive = category.IsActive,
@@ -108,7 +108,7 @@ namespace ElAnis.DataAccess.Services.Category
                 var category = new ElAnis.Entities.Models.Category
                 {
                     Name = request.Name,
-                    NameEn = request.NameEn,
+                 
                     Description = request.Description,
                     Icon = request.Icon,
                     IsActive = request.IsActive
@@ -121,7 +121,7 @@ namespace ElAnis.DataAccess.Services.Category
                 {
                     Id = category.Id,
                     Name = category.Name,
-                    NameEn = category.NameEn,
+                
                     Description = category.Description,
                     Icon = category.Icon,
                     IsActive = category.IsActive,
@@ -146,7 +146,7 @@ namespace ElAnis.DataAccess.Services.Category
                     return _responseHandler.NotFound<CategoryDtoResponse>("Category not found");
 
                 category.Name = request.Name;
-                category.NameEn = request.NameEn;
+               
                 category.Description = request.Description;
                 category.Icon = request.Icon;
                 category.IsActive = request.IsActive;
@@ -158,7 +158,6 @@ namespace ElAnis.DataAccess.Services.Category
                 {
                     Id = category.Id,
                     Name = category.Name,
-                    NameEn = category.NameEn,
                     Description = category.Description,
                     Icon = category.Icon,
                     IsActive = category.IsActive,

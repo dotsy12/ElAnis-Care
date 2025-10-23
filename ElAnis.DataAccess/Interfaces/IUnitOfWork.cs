@@ -11,6 +11,8 @@ namespace ElAnis.DataAccess
         IServiceProviderProfileRepository ServiceProviderProfiles { get; }
         ICategoryRepository Categories { get; }
         IServiceProviderCategoryRepository ServiceProviderCategories { get; }
+        IProviderWorkingAreaRepository ProviderWorkingAreas { get; }
+        IProviderAvailabilityRepository ProviderAvailabilities { get; }
 
         // Generic repository for other entities
         IGenericRepository<T> Repository<T>() where T : class;

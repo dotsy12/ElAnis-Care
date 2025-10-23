@@ -30,8 +30,4 @@
 	  <ProjectReference Include="..\ElAnis.Utilities\ElAnis.Utilities.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Migrations\" />
-	</ItemGroup>
-
 </Project>

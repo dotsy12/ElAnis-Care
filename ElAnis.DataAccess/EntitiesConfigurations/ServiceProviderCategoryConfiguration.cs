@@ -1,24 +1,40 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 using ElAnis.Entities.Models;
 
 public class ServiceProviderCategoryConfiguration : IEntityTypeConfiguration<ServiceProviderCategory>
 {
-	public void Configure(EntityTypeBuilder<ServiceProviderCategory> builder)
-	{
-		builder.ToTable("ServiceProviderCategories");
+    public void Configure(EntityTypeBuilder<ServiceProviderCategory> builder)
+    {
+        // اسم الجدول
+        builder.ToTable("ServiceProviderCategories");
 
-		builder.HasKey(sc => new { sc.ServiceProviderId, sc.CategoryId });
+        // المفتاح المركب (Composite Key)
+        builder.HasKey(sc => new { sc.ServiceProviderId, sc.CategoryId });
 
-		// علاقة مع ServiceProviderProfile
-		builder.HasOne(sc => sc.ServiceProvider)
-			   .WithMany(sp => sp.Categories)
-			   .HasForeignKey(sc => sc.ServiceProviderId);
+        // ===== Properties =====
+        builder.Property(sc => sc.CreatedAt)
+               .HasDefaultValueSql("GETUTCDATE()");
 
-		// علاقة مع Category
-		builder.HasOne(sc => sc.Category)
-			   .WithMany(c => c.ServiceProviders)
-			   .HasForeignKey(sc => sc.CategoryId);
-	}
+        // ===== Relationships =====
+
+        // علاقة مع ServiceProviderProfile (Many-to-Many)
+        builder.HasOne(sc => sc.ServiceProvider)
+               .WithMany(sp => sp.Categories)
+               .HasForeignKey(sc => sc.ServiceProviderId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        // علاقة مع Category (Many-to-Many)
+        builder.HasOne(sc => sc.Category)
+               .WithMany(c => c.ServiceProviders)
+               .HasForeignKey(sc => sc.CategoryId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        // ===== Indexes =====
+        builder.HasIndex(sc => sc.ServiceProviderId)
+               .HasDatabaseName("IX_ServiceProviderCategory_ServiceProviderId");
+
+        builder.HasIndex(sc => sc.CategoryId)
+               .HasDatabaseName("IX_ServiceProviderCategory_CategoryId");
+    }
 }

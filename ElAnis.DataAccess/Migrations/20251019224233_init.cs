@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ElAnis.DataAccess.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -33,11 +33,11 @@ namespace ElAnis.DataAccess.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    NameEn = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Icon = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    Icon = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    DisplayOrder = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
                 },
                 constraints: table =>
                 {
@@ -87,7 +87,7 @@ namespace ElAnis.DataAccess.Migrations
                     LastName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ProfilePicture = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ProfilePicture = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     IsDeleted = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
@@ -129,6 +129,31 @@ namespace ElAnis.DataAccess.Migrations
                         name: "FK_AspNetRoleClaims_AspNetRoles_RoleId",
                         column: x => x.RoleId,
                         principalTable: "AspNetRoles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ServicePricings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ShiftType = table.Column<int>(type: "int", nullable: false),
+                    PricePerShift = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ServicePricings", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ServicePricing_Category",
+                        column: x => x.CategoryId,
+                        principalTable: "Categories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -226,19 +251,20 @@ namespace ElAnis.DataAccess.Migrations
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     FirstName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     LastName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Address = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Bio = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    NationalId = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    NationalId = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     Experience = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
                     HourlyRate = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IdDocumentPath = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CertificatePath = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    SelectedCategories = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    RejectionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IdDocumentPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    CertificatePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    CVPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    SelectedCategoryIds = table.Column<string>(type: "nvarchar(max)", maxLength: 2000, nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    RejectionReason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
                     ReviewedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ReviewedById = table.Column<string>(type: "nvarchar(450)", nullable: true)
                 },
@@ -246,6 +272,8 @@ namespace ElAnis.DataAccess.Migrations
                 {
                     table.PrimaryKey("PK_ServiceProviderApplications", x => x.Id);
                     table.ForeignKey(
+                        //دا الي الادمن بيحطه للبروفيدر
+
                         name: "FK_ServiceProviderApplications_Users_ReviewedById",
                         column: x => x.ReviewedById,
                         principalTable: "Users",
@@ -264,19 +292,20 @@ namespace ElAnis.DataAccess.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Bio = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    Bio = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     NationalId = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Experience = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    Experience = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     HourlyRate = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     IdDocumentPath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CertificatePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CVPath = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CompletedJobs = table.Column<int>(type: "int", nullable: false),
-                    TotalEarnings = table.Column<decimal>(type: "decimal(18,2)", nullable: false, defaultValue: 0m),
+                    TotalEarnings = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     AverageRating = table.Column<double>(type: "float", nullable: false),
                     TotalReviews = table.Column<int>(type: "int", nullable: false),
                     WorkedDays = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    IsAvailable = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    IsAvailable = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ApprovedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     RejectionReason = table.Column<string>(type: "nvarchar(max)", nullable: true)
@@ -293,26 +322,48 @@ namespace ElAnis.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserPreferences",
+                name: "ProviderAvailabilities",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    EmailNotifications = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
-                    PushNotifications = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
-                    SmsNotifications = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
-                    PreferredLanguage = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false, defaultValue: "ar"),
-                    PreferredCurrency = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false, defaultValue: "EGP"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    ServiceProviderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Date = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsAvailable = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    AvailableShift = table.Column<int>(type: "int", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserPreferences", x => x.Id);
+                    table.PrimaryKey("PK_ProviderAvailabilities", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_UserPreferences_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
+                        name: "FK_ProviderAvailabilities_ServiceProviderProfiles_ServiceProviderId",
+                        column: x => x.ServiceProviderId,
+                        principalTable: "ServiceProviderProfiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProviderWorkingAreas",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServiceProviderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Governorate = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    City = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    District = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProviderWorkingAreas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProviderWorkingAreas_ServiceProviderProfiles_ServiceProviderId",
+                        column: x => x.ServiceProviderId,
+                        principalTable: "ServiceProviderProfiles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -323,7 +374,7 @@ namespace ElAnis.DataAccess.Migrations
                 {
                     ServiceProviderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
                 },
                 constraints: table =>
                 {
@@ -351,12 +402,17 @@ namespace ElAnis.DataAccess.Migrations
                     ServiceProviderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Governorate = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     PreferredDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    PreferredTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    TotalPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    ShiftType = table.Column<int>(type: "int", nullable: false),
                     OfferedPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    AcceptedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -377,7 +433,8 @@ namespace ElAnis.DataAccess.Migrations
                         name: "FK_ServiceRequests_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -391,7 +448,7 @@ namespace ElAnis.DataAccess.Migrations
                     Type = table.Column<int>(type: "int", nullable: false),
                     IsRead = table.Column<bool>(type: "bit", nullable: false),
                     ServiceRequestId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
                 },
                 constraints: table =>
                 {
@@ -406,6 +463,31 @@ namespace ElAnis.DataAccess.Migrations
                         name: "FK_Notifications_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Payments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServiceRequestId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PaymentMethod = table.Column<int>(type: "int", nullable: false),
+                    PaymentStatus = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    TransactionId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    PaymentGatewayResponse = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    PaidAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Payments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Payments_ServiceRequests_ServiceRequestId",
+                        column: x => x.ServiceRequestId,
+                        principalTable: "ServiceRequests",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -440,16 +522,16 @@ namespace ElAnis.DataAccess.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Reviews_ServiceProviderProfiles_ServiceProviderProfileId",
-                        column: x => x.ServiceProviderProfileId,
-                        principalTable: "ServiceProviderProfiles",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Reviews_ServiceRequests_ServiceRequestId",
+                        name: "FK_Review_ServiceRequest",
                         column: x => x.ServiceRequestId,
                         principalTable: "ServiceRequests",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Reviews_ServiceProviderProfiles_ServiceProviderProfileId",
+                        column: x => x.ServiceProviderProfileId,
+                        principalTable: "ServiceProviderProfiles",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateIndex(
@@ -480,6 +562,22 @@ namespace ElAnis.DataAccess.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Categories_DisplayOrder",
+                table: "Categories",
+                column: "DisplayOrder");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Categories_IsActive",
+                table: "Categories",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Categories_Name",
+                table: "Categories",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Notifications_CreatedAt",
                 table: "Notifications",
                 column: "CreatedAt");
@@ -493,6 +591,52 @@ namespace ElAnis.DataAccess.Migrations
                 name: "IX_Notifications_UserId_IsRead",
                 table: "Notifications",
                 columns: new[] { "UserId", "IsRead" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_CreatedAt",
+                table: "Payments",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_PaymentStatus",
+                table: "Payments",
+                column: "PaymentStatus");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_ServiceRequestId",
+                table: "Payments",
+                column: "ServiceRequestId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderAvailabilities_Date",
+                table: "ProviderAvailabilities",
+                column: "Date");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderAvailabilities_IsAvailable",
+                table: "ProviderAvailabilities",
+                column: "IsAvailable");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderAvailabilities_ServiceProviderId",
+                table: "ProviderAvailabilities",
+                column: "ServiceProviderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderWorkingAreas_Governorate_City",
+                table: "ProviderWorkingAreas",
+                columns: new[] { "Governorate", "City" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderWorkingAreas_IsActive",
+                table: "ProviderWorkingAreas",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProviderWorkingAreas_ServiceProviderId",
+                table: "ProviderWorkingAreas",
+                column: "ServiceProviderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Review_ClientUserId",
@@ -517,12 +661,34 @@ namespace ElAnis.DataAccess.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Reviews_ServiceRequestId",
                 table: "Reviews",
-                column: "ServiceRequestId");
+                column: "ServiceRequestId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServicePricing_Category_ShiftType",
+                table: "ServicePricings",
+                columns: new[] { "CategoryId", "ShiftType" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceProviderApplications_CreatedAt",
+                table: "ServiceProviderApplications",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceProviderApplications_NationalId",
+                table: "ServiceProviderApplications",
+                column: "NationalId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceProviderApplications_ReviewedById",
                 table: "ServiceProviderApplications",
                 column: "ReviewedById");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceProviderApplications_Status",
+                table: "ServiceProviderApplications",
+                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceProviderApplications_UserId",
@@ -531,24 +697,14 @@ namespace ElAnis.DataAccess.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ServiceProviderCategories_CategoryId",
+                name: "IX_ServiceProviderCategory_CategoryId",
                 table: "ServiceProviderCategories",
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ServiceProviderProfiles_AverageRating",
-                table: "ServiceProviderProfiles",
-                column: "AverageRating");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ServiceProviderProfiles_IsAvailable",
-                table: "ServiceProviderProfiles",
-                column: "IsAvailable");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ServiceProviderProfiles_Status",
-                table: "ServiceProviderProfiles",
-                column: "Status");
+                name: "IX_ServiceProviderCategory_ServiceProviderId",
+                table: "ServiceProviderCategories",
+                column: "ServiceProviderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceProviderProfiles_UserId",
@@ -580,12 +736,6 @@ namespace ElAnis.DataAccess.Migrations
                 name: "IX_ServiceRequests_UserId",
                 table: "ServiceRequests",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserPreferences_UserId",
-                table: "UserPreferences",
-                column: "UserId",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -649,16 +799,25 @@ namespace ElAnis.DataAccess.Migrations
                 name: "Notifications");
 
             migrationBuilder.DropTable(
+                name: "Payments");
+
+            migrationBuilder.DropTable(
+                name: "ProviderAvailabilities");
+
+            migrationBuilder.DropTable(
+                name: "ProviderWorkingAreas");
+
+            migrationBuilder.DropTable(
                 name: "Reviews");
+
+            migrationBuilder.DropTable(
+                name: "ServicePricings");
 
             migrationBuilder.DropTable(
                 name: "ServiceProviderApplications");
 
             migrationBuilder.DropTable(
                 name: "ServiceProviderCategories");
-
-            migrationBuilder.DropTable(
-                name: "UserPreferences");
 
             migrationBuilder.DropTable(
                 name: "UserRefreshTokens");

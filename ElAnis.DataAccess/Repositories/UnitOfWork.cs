@@ -8,6 +8,7 @@ using ElAnis.DataAccess.Repositories.Implementations;
 using System.Collections.Concurrent;
 using ElAnis.DataAccess.Interfaces;
 using ElAnis.DataAccess.Repositories;
+using ElAnis.Entities.Models;
 
 namespace ElAnis.DataAccess
 {
@@ -24,7 +25,8 @@ namespace ElAnis.DataAccess
         private IServiceProviderProfileRepository? _serviceProviderProfiles;
         private ICategoryRepository? _categories;
         private IServiceProviderCategoryRepository? _serviceProviderCategories;
-
+        private IProviderWorkingAreaRepository? _providerWorkingAreas;
+        private IProviderAvailabilityRepository? _providerAvailabilities;
         public UnitOfWork(AuthContext context)
         {
             _context = context;
@@ -45,6 +47,12 @@ namespace ElAnis.DataAccess
 
         public IServiceProviderCategoryRepository ServiceProviderCategories =>
             _serviceProviderCategories ??= new ServiceProviderCategoryRepository(_context);
+
+        public IProviderWorkingAreaRepository ProviderWorkingAreas =>
+            _providerWorkingAreas ??= new ProviderWorkingAreaRepository(_context);
+
+        public IProviderAvailabilityRepository ProviderAvailabilities =>
+            _providerAvailabilities ??= new ProviderAvailabilityRepository(_context);
 
         public IGenericRepository<T> Repository<T>() where T : class
         {

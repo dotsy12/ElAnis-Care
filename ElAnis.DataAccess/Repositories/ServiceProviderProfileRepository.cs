@@ -15,14 +15,19 @@ namespace ElAnis.DataAccess.Repositories
     {
         public ServiceProviderProfileRepository(AuthContext context) : base(context) { }
 
-        public async Task<ServiceProviderProfile?> GetByUserIdAsync(string userId)=> await _dbSet.FirstOrDefaultAsync(sp => sp.UserId == userId);
-        
+        public async Task<ServiceProviderProfile?> GetByUserIdAsync(string userId)
+        {
+            return await _dbSet
+                .Include(sp => sp.User)
+                .Include(sp => sp.Categories)
+                .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        }
 
-        public async Task<(IEnumerable<ServiceProviderProfile> Items, int TotalCount)> GetProvidersWithDetailsAsync(
-            int page, int pageSize)
+        public async Task<(IEnumerable<ServiceProviderProfile>, int)> GetProvidersWithDetailsAsync(int page, int pageSize)
         {
             var query = _dbSet
                 .Include(sp => sp.User)
+                .Include(sp => sp.Categories)
                 .OrderByDescending(sp => sp.CreatedAt);
 
             var totalCount = await query.CountAsync();

@@ -31,7 +31,6 @@ namespace ElAnis.Tests.Services
         private readonly Mock<ILogger<AuthService>> _loggerMock;
         private readonly Mock<IUserRepository> _userRepositoryMock;
         private readonly Mock<IServiceProviderApplicationRepository> _applicationRepositoryMock;
-        private readonly Mock<IGenericRepository<UserPreferences>> _preferencesRepositoryMock;
         private readonly Mock<IGenericRepository<UserRefreshToken>> _refreshTokenRepositoryMock;
         private readonly ResponseHandler _responseHandler;
         private readonly AuthService _authService;
@@ -46,14 +45,14 @@ namespace ElAnis.Tests.Services
             _loggerMock = new Mock<ILogger<AuthService>>();
             _userRepositoryMock = new Mock<IUserRepository>();
             _applicationRepositoryMock = new Mock<IServiceProviderApplicationRepository>();
-            _preferencesRepositoryMock = new Mock<IGenericRepository<UserPreferences>>();
+         
             _refreshTokenRepositoryMock = new Mock<IGenericRepository<UserRefreshToken>>();
             _responseHandler = new ResponseHandler();
 
             // Setup UnitOfWork mocks
             _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepositoryMock.Object);
             _unitOfWorkMock.Setup(u => u.ServiceProviderApplications).Returns(_applicationRepositoryMock.Object);
-            _unitOfWorkMock.Setup(u => u.Repository<UserPreferences>()).Returns(_preferencesRepositoryMock.Object);
+          
             _unitOfWorkMock.Setup(u => u.Repository<UserRefreshToken>()).Returns(_refreshTokenRepositoryMock.Object);
 
             _authService = new AuthService(
@@ -740,8 +739,7 @@ namespace ElAnis.Tests.Services
                 .ReturnsAsync(IdentityResult.Success);
             _userManagerMock.Setup(m => m.AddToRoleAsync(It.IsAny<User>(), "USER"))
                 .ReturnsAsync(IdentityResult.Success);
-            _preferencesRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserPreferences>()))
-                .ReturnsAsync(new UserPreferences());
+         
 
             _tokenStoreServiceMock.Setup(t => t.GenerateAndStoreTokensAsync(It.IsAny<string>(), It.IsAny<User>()))
                 .ReturnsAsync(tokens);
@@ -845,8 +843,7 @@ namespace ElAnis.Tests.Services
                 .ReturnsAsync(IdentityResult.Success);
             _userManagerMock.Setup(m => m.AddToRoleAsync(It.IsAny<User>(), "USER"))
                 .ReturnsAsync(IdentityResult.Success);
-            _preferencesRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserPreferences>()))
-                .ReturnsAsync(new UserPreferences());
+       
 
             _otpServiceMock.Setup(o => o.GenerateAndStoreOtpAsync(It.IsAny<string>()))
                 .ReturnsAsync(otp);

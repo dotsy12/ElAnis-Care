@@ -1,10 +1,6 @@
 ﻿using ElAnis.Entities.Models.Auth.Identity;
 using ElAnis.Utilities.Enum;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace ElAnis.Entities.Models
 {
@@ -25,14 +21,15 @@ namespace ElAnis.Entities.Models
 		public string Bio { get; set; } = string.Empty;
 		public string NationalId { get; set; } = string.Empty;
 		public string Experience { get; set; } = string.Empty;
-		public decimal HourlyRate { get; set; }
+		public decimal HourlyRate { get; set; }///
 
 		// Documents
 		public string IdDocumentPath { get; set; } = string.Empty;
 		public string CertificatePath { get; set; } = string.Empty;
+        public string CVPath { get; set; } = string.Empty;
 
-		// Selected Categories
-		public List<Guid> SelectedCategories { get; set; } = new();
+        // Selected Categories
+        public List<Guid> SelectedCategories { get; set; } = new();
 		// JSON string of category IDs
 
 		// Application Status

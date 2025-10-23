@@ -93,19 +93,25 @@ namespace ElAnis.API.Extensions
                 options.AddPolicy("ServiceProviderOnly", policy =>
                     policy.RequireRole("Provider"));
 
-                options.AddPolicy("UserOnly", policy =>
-                    policy.RequireRole("User"));
+                options.AddPolicy("VerifiedServiceProvider", policy =>
+                    policy.RequireRole("Provider")
+                          .RequireClaim("ServiceProviderStatus", "Approved"));
+
+                options.AddPolicy("PendingServiceProvider", policy =>
+                    policy.RequireRole("Provider")
+                          .RequireClaim("ServiceProviderStatus", "Pending", "UnderReview", "RequiresMoreInfo"));
+
+                options.AddPolicy("RejectedServiceProvider", policy =>
+                    policy.RequireRole("Provider")
+                          .RequireClaim("ServiceProviderStatus", "Rejected"));
 
                 options.AddPolicy("ServiceProviderOrAdmin", policy =>
                     policy.RequireRole("Provider", "Admin"));
 
                 options.AddPolicy("AuthenticatedUser", policy =>
                     policy.RequireAuthenticatedUser());
-
-                options.AddPolicy("VerifiedServiceProvider", policy =>
-                    policy.RequireRole("Provider")
-                          .RequireClaim("ServiceProviderStatus", "Approved"));
             });
+
 
             return services;
         }

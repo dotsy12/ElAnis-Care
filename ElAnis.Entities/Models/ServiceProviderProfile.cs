@@ -17,9 +17,10 @@ namespace ElAnis.Entities.Models
 		public decimal HourlyRate { get; set; }
 		public string? IdDocumentPath { get; set; }
 		public string? CertificatePath { get; set; }
+        public string CVPath { get; set; } = string.Empty;
 
-		// Statistics for Dashboard
-		public int CompletedJobs { get; set; } = 0;
+        // Statistics for Dashboard
+        public int CompletedJobs { get; set; } = 0;
 		public decimal TotalEarnings { get; set; } = 0;
 		public double AverageRating { get; set; } = 0;
 		public int TotalReviews { get; set; } = 0;
@@ -32,9 +33,11 @@ namespace ElAnis.Entities.Models
 		public DateTime? ApprovedAt { get; set; }
 		public string? RejectionReason { get; set; }
 
-		// Navigation Properties
-		public ICollection<ServiceProviderCategory> Categories { get; set; } = new List<ServiceProviderCategory>();
-		public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
-		public ICollection<Review> Reviews { get; set; } = new List<Review>();
-	}
+        // Navigation Properties
+        public ICollection<ServiceProviderCategory> Categories { get; set; } = new List<ServiceProviderCategory>();
+        public ICollection<ProviderWorkingArea> WorkingAreas { get; set; } = new List<ProviderWorkingArea>();
+        public ICollection<ProviderAvailability> Availability { get; set; } = new List<ProviderAvailability>();
+        public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
+        public ICollection<Review> ReceivedReviews { get; set; } = new List<Review>();
+    }
 }

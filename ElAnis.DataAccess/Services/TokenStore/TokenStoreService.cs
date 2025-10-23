@@ -50,26 +50,49 @@ namespace ElAnis.DataAccess.Services.Token
                 new Claim("FullName", $"{appUser.FirstName} {appUser.LastName}".Trim())
             };
 
-            // Add roles
+            // ✅ إضافة الأدوار
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            // Add ServiceProvider specific claims if user is a service provider
-            if (roles.Contains("SERVICE_PROVIDER") || roles.Contains("PROVIDER"))
+            // ✅ التعامل مع البروفايدر
+            if (roles.Contains("Provider") || roles.Contains("PROVIDER"))
             {
+                // 🔍 أولاً: نحاول نجيب الـ Profile (لو موجود ومتوافق عليه)
                 var serviceProvider = await _unitOfWork.ServiceProviderProfiles
                     .GetByUserIdAsync(appUser.Id);
 
                 if (serviceProvider != null)
                 {
+                    // ✅ البروفايدر عنده Profile (معناها اتوافق عليه)
                     claims.Add(new Claim("ServiceProviderId", serviceProvider.Id.ToString()));
                     claims.Add(new Claim("ServiceProviderStatus", serviceProvider.Status.ToString()));
                     claims.Add(new Claim("IsAvailable", serviceProvider.IsAvailable.ToString()));
+
+                    Console.WriteLine($"✅ [Token] Provider Profile Found - Status: {serviceProvider.Status}");
+                }
+                else
+                {
+                    // 🟡 البروفايدر لسه مقدم طلب (مفيش Profile)
+                    var application = await _unitOfWork.ServiceProviderApplications
+                        .FindSingleAsync(a => a.UserId == appUser.Id);
+
+                    if (application != null)
+                    {
+                        claims.Add(new Claim("ApplicationId", application.Id.ToString()));
+                        claims.Add(new Claim("ServiceProviderStatus", application.Status.ToString()));
+
+                        Console.WriteLine($"🟡 [Token] Application Found - Status: {application.Status}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠️ [Token] No Profile or Application found for user {appUser.Id}");
+                    }
                 }
             }
 
+            // ✅ إنشاء الـ Token
             var creds = new SigningCredentials(_symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -82,7 +105,18 @@ namespace ElAnis.DataAccess.Services.Token
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+
+            var tokenString = tokenHandler.WriteToken(token);
+
+            // 🔍 للـ Debugging: اطبع الـ Claims اللي في التوكن
+            Console.WriteLine($"🎫 [Token Generated] User: {appUser.Email}, Roles: {string.Join(", ", roles)}");
+            var statusClaim = claims.FirstOrDefault(c => c.Type == "ServiceProviderStatus");
+            if (statusClaim != null)
+            {
+                Console.WriteLine($"   └─ ServiceProviderStatus: {statusClaim.Value}");
+            }
+
+            return tokenString;
         }
 
         public string GenerateRefreshToken()

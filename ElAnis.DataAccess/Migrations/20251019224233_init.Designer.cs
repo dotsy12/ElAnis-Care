@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ElAnis.DataAccess.Migrations
 {
     [DbContext(typeof(AuthContext))]
-    [Migration("20250921120846_FixServiceProviderApplicationCategories")]
-    partial class FixServiceProviderApplicationCategories
+    [Migration("20251019224233_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -132,7 +132,8 @@ namespace ElAnis.DataAccess.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ProfilePicture")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
@@ -216,29 +217,43 @@ namespace ElAnis.DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Icon")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("NameEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("DisplayOrder");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("Categories", (string)null);
                 });
@@ -250,7 +265,9 @@ namespace ElAnis.DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
@@ -284,6 +301,139 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasIndex("UserId", "IsRead");
 
                     b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentGatewayResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentStatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<Guid>("ServiceRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("PaymentStatus");
+
+                    b.HasIndex("ServiceRequestId")
+                        .IsUnique();
+
+                    b.ToTable("Payments", (string)null);
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ProviderAvailability", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("AvailableShift")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("ServiceProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("IsAvailable");
+
+                    b.HasIndex("ServiceProviderId");
+
+                    b.ToTable("ProviderAvailabilities", (string)null);
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ProviderWorkingArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("District")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Governorate")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid>("ServiceProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("ServiceProviderId");
+
+                    b.HasIndex("Governorate", "City");
+
+                    b.ToTable("ProviderWorkingAreas", (string)null);
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.Review", b =>
@@ -331,12 +481,57 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasIndex("ServiceProviderUserId")
                         .HasDatabaseName("IX_Review_ServiceProviderUserId");
 
-                    b.HasIndex("ServiceRequestId");
+                    b.HasIndex("ServiceRequestId")
+                        .IsUnique();
 
                     b.ToTable("Reviews", t =>
                         {
                             t.HasCheckConstraint("CK_Review_Rating", "Rating >= 1 AND Rating <= 5");
                         });
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ServicePricing", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal>("PricePerShift")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ShiftType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "ShiftType")
+                        .HasDatabaseName("IX_ServicePricing_Category_ShiftType");
+
+                    b.ToTable("ServicePricings", (string)null);
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.ServiceProviderApplication", b =>
@@ -355,9 +550,15 @@ namespace ElAnis.DataAccess.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("CVPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("CertificatePath")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -382,7 +583,8 @@ namespace ElAnis.DataAccess.Migrations
 
                     b.Property<string>("IdDocumentPath")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -411,8 +613,9 @@ namespace ElAnis.DataAccess.Migrations
 
                     b.Property<string>("SelectedCategories")
                         .IsRequired()
+                        .HasMaxLength(2000)
                         .HasColumnType("nvarchar(max)")
-                        .HasColumnName("SelectedCategoriesJson");
+                        .HasColumnName("SelectedCategoryIds");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
@@ -449,11 +652,17 @@ namespace ElAnis.DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("ServiceProviderId", "CategoryId");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("IX_ServiceProviderCategory_CategoryId");
+
+                    b.HasIndex("ServiceProviderId")
+                        .HasDatabaseName("IX_ServiceProviderCategory_ServiceProviderId");
 
                     b.ToTable("ServiceProviderCategories", (string)null);
                 });
@@ -471,6 +680,10 @@ namespace ElAnis.DataAccess.Migrations
                         .HasColumnType("float");
 
                     b.Property<string>("Bio")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CVPath")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CertificatePath")
@@ -530,6 +743,9 @@ namespace ElAnis.DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -537,6 +753,9 @@ namespace ElAnis.DataAccess.Migrations
 
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -546,22 +765,32 @@ namespace ElAnis.DataAccess.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("Governorate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal?>("OfferedPrice")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("PreferredDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<TimeSpan>("PreferredTime")
-                        .HasColumnType("time");
-
                     b.Property<Guid?>("ServiceProviderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ShiftType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -580,59 +809,6 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ServiceRequests", (string)null);
-                });
-
-            modelBuilder.Entity("ElAnis.Entities.Models.UserPreferences", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("EmailNotifications")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("PreferredCurrency")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasDefaultValue("EGP");
-
-                    b.Property<string>("PreferredLanguage")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasDefaultValue("ar");
-
-                    b.Property<bool>("PushNotifications")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("SmsNotifications")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("UserPreferences", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -778,6 +954,39 @@ namespace ElAnis.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ElAnis.Entities.Models.Payment", b =>
+                {
+                    b.HasOne("ElAnis.Entities.Models.ServiceRequest", "ServiceRequest")
+                        .WithOne("Payment")
+                        .HasForeignKey("ElAnis.Entities.Models.Payment", "ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ProviderAvailability", b =>
+                {
+                    b.HasOne("ElAnis.Entities.Models.ServiceProviderProfile", "ServiceProvider")
+                        .WithMany("Availability")
+                        .HasForeignKey("ServiceProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceProvider");
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ProviderWorkingArea", b =>
+                {
+                    b.HasOne("ElAnis.Entities.Models.ServiceProviderProfile", "ServiceProvider")
+                        .WithMany("WorkingAreas")
+                        .HasForeignKey("ServiceProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceProvider");
+                });
+
             modelBuilder.Entity("ElAnis.Entities.Models.Review", b =>
                 {
                     b.HasOne("ElAnis.Entities.Models.Auth.Identity.User", "Client")
@@ -788,7 +997,7 @@ namespace ElAnis.DataAccess.Migrations
                         .HasConstraintName("FK_Review_Client");
 
                     b.HasOne("ElAnis.Entities.Models.ServiceProviderProfile", null)
-                        .WithMany("Reviews")
+                        .WithMany("ReceivedReviews")
                         .HasForeignKey("ServiceProviderProfileId");
 
                     b.HasOne("ElAnis.Entities.Models.Auth.Identity.User", "ServiceProvider")
@@ -799,16 +1008,29 @@ namespace ElAnis.DataAccess.Migrations
                         .HasConstraintName("FK_Review_ServiceProvider");
 
                     b.HasOne("ElAnis.Entities.Models.ServiceRequest", "ServiceRequest")
-                        .WithMany()
-                        .HasForeignKey("ServiceRequestId")
+                        .WithOne("Review")
+                        .HasForeignKey("ElAnis.Entities.Models.Review", "ServiceRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_Review_ServiceRequest");
 
                     b.Navigation("Client");
 
                     b.Navigation("ServiceProvider");
 
                     b.Navigation("ServiceRequest");
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ServicePricing", b =>
+                {
+                    b.HasOne("ElAnis.Entities.Models.Category", "Category")
+                        .WithMany("Pricing")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ServicePricing_Category");
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.ServiceProviderApplication", b =>
@@ -875,23 +1097,12 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasOne("ElAnis.Entities.Models.Auth.Identity.User", "User")
                         .WithMany("ServiceRequests")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Category");
 
                     b.Navigation("ServiceProvider");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ElAnis.Entities.Models.UserPreferences", b =>
-                {
-                    b.HasOne("ElAnis.Entities.Models.Auth.Identity.User", "User")
-                        .WithOne("UserPreferences")
-                        .HasForeignKey("ElAnis.Entities.Models.UserPreferences", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -961,13 +1172,12 @@ namespace ElAnis.DataAccess.Migrations
                     b.Navigation("ServiceProviderProfile");
 
                     b.Navigation("ServiceRequests");
-
-                    b.Navigation("UserPreferences")
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.Category", b =>
                 {
+                    b.Navigation("Pricing");
+
                     b.Navigation("ServiceProviders");
 
                     b.Navigation("ServiceRequests");
@@ -975,11 +1185,22 @@ namespace ElAnis.DataAccess.Migrations
 
             modelBuilder.Entity("ElAnis.Entities.Models.ServiceProviderProfile", b =>
                 {
+                    b.Navigation("Availability");
+
                     b.Navigation("Categories");
 
-                    b.Navigation("Reviews");
+                    b.Navigation("ReceivedReviews");
 
                     b.Navigation("ServiceRequests");
+
+                    b.Navigation("WorkingAreas");
+                });
+
+            modelBuilder.Entity("ElAnis.Entities.Models.ServiceRequest", b =>
+                {
+                    b.Navigation("Payment");
+
+                    b.Navigation("Review");
                 });
 #pragma warning restore 612, 618
         }

@@ -6,12 +6,15 @@ using System.Threading.Tasks;
 
 namespace ElAnis.Utilities.Enum
 {
-	public enum ServiceRequestStatus
-	{
-		Pending = 1,
-		Assigned = 2,
-		InProgress = 3,
-		Completed = 4,
-		Cancelled = 5
-	}
+    // حالة طلب الخدمة
+    public enum ServiceRequestStatus
+    {
+        Pending = 1,        // في انتظار قبول البروفايدر
+        Accepted = 2,       // تم قبوله من البروفايدر
+        PaymentPending = 3, // في انتظار الدفع
+        Paid = 4,           // تم الدفع
+        InProgress = 5,     // جاري التنفيذ
+        Completed = 6,      // تم الإكمال
+        Cancelled = 7       // ملغي
+    }
 }

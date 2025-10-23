@@ -366,9 +366,7 @@ namespace ElAnis.DataAccess.Services.Auth
                 await _userManager.AddToRoleAsync(user, "USER");
                 _logger.LogInformation("User created and role 'USER' assigned. ID: {UserId}", user.Id);
 
-                // Create user preferences using repository
-                var preferences = new UserPreferences { UserId = user.Id };
-                await _unitOfWork.Repository<UserPreferences>().AddAsync(preferences);
+           
 
                 var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
                 var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
@@ -402,22 +400,19 @@ namespace ElAnis.DataAccess.Services.Auth
         {
             _logger.LogInformation("RegisterServiceProviderAsync started for Email: {Email}", request.Email);
 
-            // Check if email or phone exists using repository
-            var emailExists = await _unitOfWork.Users.IsEmailExistsAsync(request.Email);
-            if (emailExists)
+            // ✅ Step 1: Check if email or phone already exists
+            if (await _unitOfWork.Users.IsEmailExistsAsync(request.Email))
                 return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Email is already registered.");
 
-            if (!string.IsNullOrEmpty(request.PhoneNumber))
-            {
-                var phoneExists = await _unitOfWork.Users.IsPhoneExistsAsync(request.PhoneNumber);
-                if (phoneExists)
-                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Phone number is already registered.");
-            }
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber) &&
+                await _unitOfWork.Users.IsPhoneExistsAsync(request.PhoneNumber))
+                return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Phone number is already registered.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
-                // Create user account with USER role first
+                // ✅ Step 2: Create Identity User
                 var user = new User
                 {
                     UserName = request.Email,
@@ -432,29 +427,40 @@ namespace ElAnis.DataAccess.Services.Auth
                 var createUserResult = await _userManager.CreateAsync(user, request.Password);
                 if (!createUserResult.Succeeded)
                 {
-                    var errors = createUserResult.Errors.Select(e => e.Description).ToList();
+                    var errors = string.Join(", ", createUserResult.Errors.Select(e => e.Description));
                     await _unitOfWork.RollbackAsync();
-                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(string.Join(", ", errors));
+                    _logger.LogWarning("Failed to create user for Email: {Email} - Errors: {Errors}", request.Email, errors);
+                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(errors);
                 }
 
-                // Assign USER role temporarily
-                await _userManager.AddToRoleAsync(user, "USER");
+                // ✅ Step 3: Assign default role
+                await _userManager.AddToRoleAsync(user, "PROVIDER");
 
-                // Handle file uploads (implement as needed)
+
+                // ✅ Step 4: Handle File Uploads
                 string? idDocumentPath = null;
                 string? certificatePath = null;
+                string? cvPath = null;
 
                 if (request.IdDocument != null)
                 {
                     // idDocumentPath = await _fileUploadService.UploadFileAsync(request.IdDocument, "documents");
                 }
-
-                if (request.Certificate != null)
+                    if (request.Certificate != null)
+                    { 
+                 // certificatePath = await _fileUploadService.UploadFileAsync(request.Certificate, "certificates");
+                        }
+                 if (request.CVPath != null)
+                   {
+                     //cvPath = await _fileUploadService.UploadFileAsync(request.CVPath, "cv");
+                   }
+                if (await _unitOfWork.ServiceProviderApplications.AnyAsync(s => s.NationalId == request.NationalId))
                 {
-                    // certificatePath = await _fileUploadService.UploadFileAsync(request.Certificate, "certificates");
+                    await _unitOfWork.RollbackAsync();
+                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("National ID already exists.");
                 }
 
-                // Create service provider application using repository
+                // ✅ Step 5: Create Service Provider Application
                 var application = new ServiceProviderApplication
                 {
                     UserId = user.Id,
@@ -467,30 +473,34 @@ namespace ElAnis.DataAccess.Services.Auth
                     NationalId = request.NationalId,
                     Experience = request.Experience,
                     HourlyRate = request.HourlyRate,
-                    IdDocumentPath = idDocumentPath ?? "",
-                    CertificatePath = certificatePath ?? "",
+                    IdDocumentPath = idDocumentPath ?? string.Empty,
+                    CertificatePath = certificatePath ?? string.Empty,
+                    CVPath = cvPath ?? string.Empty,
                     SelectedCategories = request.SelectedCategoryIds,
                     Status = ServiceProviderApplicationStatus.Pending
                 };
 
                 await _unitOfWork.ServiceProviderApplications.AddAsync(application);
 
-                // Send notification OTP
+                // ✅ Step 6: Send OTP for email verification
                 var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
                 await _emailService.SendOtpEmailAsync(user, otp);
 
+                // ✅ Step 7: Commit Transaction
                 await _unitOfWork.CommitAsync();
 
+                // ✅ Step 8: Return success response
                 var response = new ServiceProviderApplicationResponse
                 {
                     ApplicationId = application.Id,
                     UserId = user.Id,
-                    Email = user.Email ?? "",
+                    Email = user.Email ?? string.Empty,
                     Message = "Service provider application submitted successfully. Please verify your email and wait for admin approval.",
                     Status = application.Status,
                     CreatedAt = application.CreatedAt
                 };
 
+                _logger.LogInformation("RegisterServiceProviderAsync succeeded for Email: {Email}", request.Email);
                 return _responseHandler.Created(response, "Application submitted successfully.");
             }
             catch (Exception ex)

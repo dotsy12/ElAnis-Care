@@ -26,9 +26,10 @@ namespace ElAnis.Entities.DTO.Account.Auth.Register
 		// Documents (IFormFile for file uploads)
 		public IFormFile? IdDocument { get; set; }
 		public IFormFile? Certificate { get; set; }
+        public IFormFile? CVPath { get; set; } 
 
-		// Selected Categories (comma-separated IDs or JSON)
-		public List<Guid> SelectedCategoryIds { get; set; } = new();
+        // Selected Categories (comma-separated IDs or JSON)
+        public List<Guid> SelectedCategoryIds { get; set; } = new();
 
 
 	}

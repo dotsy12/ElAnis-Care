@@ -17,12 +17,30 @@ namespace ElAnis.Entities.Models
 		public Category Category { get; set; } = null!;
 
 		public string Description { get; set; } = string.Empty;
-		public string Address { get; set; } = string.Empty;
+
+        public string Governorate { get; set; } = string.Empty; // المحافظة
+
+
+
+        public string Address { get; set; } = string.Empty;
 		public DateTime PreferredDate { get; set; }
-		public TimeSpan PreferredTime { get; set; }
-		public decimal? OfferedPrice { get; set; }
+
+
+        // السعر (يتم حسابه من ServicePricing)
+        public decimal TotalPrice { get; set; }
+
+     
+        public ShiftType ShiftType { get; set; } // نوع الشيفت (3ساعات، 12ساعة، 24ساعة)
+        public decimal? OfferedPrice { get; set; }
 
 		public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.Pending;
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-	}
+        public DateTime? AcceptedAt { get; set; } // وقت قبول البروفايدر
+        public DateTime? StartedAt { get; set; } // وقت بدء الخدمة
+        public DateTime? CompletedAt { get; set; } // وقت انتهاء الخدمة
+
+        // Navigation Properties
+        public Payment? Payment { get; set; }
+        public Review? Review { get; set; }
+    }
 }

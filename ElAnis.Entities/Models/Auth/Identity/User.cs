@@ -6,7 +6,9 @@ namespace ElAnis.Entities.Models.Auth.Identity
 	{
 		public string FirstName { get; set; } = string.Empty;
 		public string LastName { get; set; } = string.Empty;
-		public string? Address { get; set; }
+
+       // public string? Governorate { get; set; } // المحافظة
+        public string? Address { get; set; }
 		public DateTime? DateOfBirth { get; set; }
 		public string? ProfilePicture { get; set; }
 
@@ -16,13 +18,14 @@ namespace ElAnis.Entities.Models.Auth.Identity
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 		public DateTime? LastLoginDate { get; set; }
 
-		// Navigation Properties
-		public ServiceProviderProfile? ServiceProviderProfile { get; set; }
-		public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
+        // Navigation Properties
+        public ServiceProviderProfile? ServiceProviderProfile { get; set; }
+
+        public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
 		public ICollection<Review> GivenReviews { get; set; } = new List<Review>();
 		public ICollection<Review> ReceivedReviews { get; set; } = new List<Review>();
 		// علاقة One-to-one مع UserPreferences
-		public UserPreferences UserPreferences { get; set; } // مش ICollection
+	
 
 
 		// علاقة One-to-One مع ServiceProviderApplication

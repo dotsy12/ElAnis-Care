@@ -32,8 +32,12 @@ namespace ElAnis.DataAccess.ApplicationContext
 		public DbSet<Review> Reviews { get; set; }
 		public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
 		public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
-		public DbSet<ServiceProviderApplication> ServiceProviderApplications { get; set; }
-		public DbSet<UserPreferences> UserPreferences { get; set; }
+		public DbSet<ServiceProviderApplication> ServiceProviderApplications { get; set; } 
+
+	    public DbSet <Payment> payments { get; set; }
+		public DbSet <ProviderAvailability> ProviderAvailabilities { get; set; }
+		public DbSet <ProviderWorkingArea> ProviderWorkingAreas { get; set; }
+		public DbSet <ServicePricing> ServicePricings { get; set; }
 
 		public DbSet<Notification> Notifications { get; set; }
 	}

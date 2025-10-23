@@ -90,6 +90,16 @@ namespace ElAnis.Entities.Shared.Bases
                 Message = message
             };
         }
+        public Response<T> Forbidden<T>(string message)
+        {
+            return new Response<T>
+            {
+                StatusCode = System.Net.HttpStatusCode.Forbidden,
+                Succeeded = false,
+                Message = message,
+                Errors = new List<string> { message }
+            };
+        }
         public IActionResult HandleModelStateErrors(ModelStateDictionary modelState)
         {
             var errors = modelState.Values.SelectMany(v => v.Errors)

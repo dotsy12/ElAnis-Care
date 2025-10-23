@@ -19,6 +19,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ElAnis.DataAccess.Interfaces;
 using ElAnis.DataAccess.Repositories;
+using ElAnis.DataAccess.Services.ServiceProvider;
 
 
 namespace ElAnis.DataAccess.Extensions
@@ -69,6 +70,7 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IAuthGoogleService, AuthGoogleService>();
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<ICategoryService, CategoryService>();
+            services.AddScoped<IServiceProviderService, ServiceProviderService>();
 
             return services;
         }
