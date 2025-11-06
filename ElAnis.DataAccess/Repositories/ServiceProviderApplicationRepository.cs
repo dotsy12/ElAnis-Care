@@ -46,5 +46,12 @@ namespace ElAnis.DataAccess.Repositories
                 .Where(a => a.Status == ElAnis.Utilities.Enum.ServiceProviderApplicationStatus.Pending)
                 .ToListAsync();
         }
+        public async Task<ServiceProviderApplication?> GetByUserIdAsync(string userId)
+        {
+            return await _dbSet
+                .Include(a => a.User)
+                .FirstOrDefaultAsync(a => a.UserId == userId);
+        }
+
     }
 }

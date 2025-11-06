@@ -11,9 +11,10 @@ namespace ElAnis.DataAccess.Interfaces
 {
     public interface IProviderAvailabilityRepository : IGenericRepository<ProviderAvailability>
     {
-        Task<List<ProviderAvailability>> GetProviderAvailabilityAsync(Guid serviceProviderId, DateTime startDate, DateTime endDate);
+        Task<IEnumerable<ProviderAvailability>> GetProviderAvailabilityAsync(Guid providerId, DateTime startDate, DateTime endDate);
         Task<ProviderAvailability?> GetByDateAsync(Guid serviceProviderId, DateTime date);
         Task<bool> IsAvailableOnDateAsync(Guid serviceProviderId, DateTime date, ShiftType? shiftType = null);
         Task<List<DateTime>> GetBookedDatesAsync(Guid serviceProviderId, DateTime startDate, DateTime endDate);
+        Task<ProviderAvailability?> GetByDateAndShiftAsync(Guid providerId, DateTime date, ShiftType? shift);
     }
 }

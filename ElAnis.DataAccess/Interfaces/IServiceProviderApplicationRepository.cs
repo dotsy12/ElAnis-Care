@@ -9,5 +9,7 @@ namespace ElAnis.DataAccess.Repositories.Interfaces
             int page, int pageSize);
         Task<ServiceProviderApplication?> GetApplicationWithDetailsAsync(Guid id);
         Task<IEnumerable<ServiceProviderApplication>> GetPendingApplicationsAsync();
+        Task<ServiceProviderApplication?> GetByUserIdAsync(string userId);
+
     }
 }

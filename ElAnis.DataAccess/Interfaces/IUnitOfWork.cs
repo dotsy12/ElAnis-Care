@@ -1,4 +1,5 @@
 ﻿using ElAnis.DataAccess.Interfaces;
+using ElAnis.DataAccess.Repositories;
 using ElAnis.DataAccess.Repositories.Interfaces;
 
 namespace ElAnis.DataAccess
@@ -13,6 +14,10 @@ namespace ElAnis.DataAccess
         IServiceProviderCategoryRepository ServiceProviderCategories { get; }
         IProviderWorkingAreaRepository ProviderWorkingAreas { get; }
         IProviderAvailabilityRepository ProviderAvailabilities { get; }
+        IServicePricingRepository ServicePricings { get; }
+        IServiceRequestRepository ServiceRequests { get; }
+
+        IPaymentRepository Payments { get; }
 
         // Generic repository for other entities
         IGenericRepository<T> Repository<T>() where T : class;

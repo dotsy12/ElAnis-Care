@@ -1,6 +1,8 @@
 ﻿using ElAnis.DataAccess;
 using ElAnis.DataAccess.Services.ServiceProvider;
+using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.DTO.Availability;
+using ElAnis.Entities.DTO.Provider;
 using ElAnis.Entities.DTO.ServiceProviderProfile;
 using ElAnis.Entities.DTO.WorkingArea;
 using ElAnis.Entities.Models;
@@ -288,7 +290,7 @@ public class ServiceProviderService : IServiceProviderService
                 }).ToList(),
                 WorkingAreas = profile.WorkingAreas
                     .Where(w => w.IsActive)
-                    .Select(w => new WorkingAreaDto
+                    .Select(w => new ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto
                     {
                         Id = w.Id,
                         Governorate = w.Governorate,
@@ -381,24 +383,24 @@ public class ServiceProviderService : IServiceProviderService
     }
 
     // ===== WORKING AREAS =====
-    public async Task<Response<List<WorkingAreaDto>>> GetWorkingAreasAsync(ClaimsPrincipal userClaims)
+    public async Task<Response<List<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>>> GetWorkingAreasAsync(ClaimsPrincipal userClaims)
     {
         try
         {
             var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
-                return _responseHandler.Unauthorized<List<WorkingAreaDto>>("User not authenticated");
+                return _responseHandler.Unauthorized<List<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>>("User not authenticated");
 
             var profile = await _unitOfWork.ServiceProviderProfiles
                 .FindSingleAsync(p => p.UserId == userId);
 
             if (profile == null)
-                return _responseHandler.NotFound<List<WorkingAreaDto>>("Profile not found");
+                return _responseHandler.NotFound<List<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>>("Profile not found");
 
             var workingAreas = await _unitOfWork.ProviderWorkingAreas
                 .GetProviderWorkingAreasAsync(profile.Id);
 
-            var response = workingAreas.Select(w => new WorkingAreaDto
+            var response = workingAreas.Select(w => new ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto
             {
                 Id = w.Id,
                 Governorate = w.Governorate,
@@ -412,11 +414,11 @@ public class ServiceProviderService : IServiceProviderService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting working areas");
-            return _responseHandler.ServerError<List<WorkingAreaDto>>("Error retrieving working areas");
+            return _responseHandler.ServerError<List<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>>("Error retrieving working areas");
         }
     }
 
-    public async Task<Response<WorkingAreaDto>> AddWorkingAreaAsync(
+    public async Task<Response<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>> AddWorkingAreaAsync(
         AddWorkingAreaRequest request,
         ClaimsPrincipal userClaims)
     {
@@ -424,20 +426,20 @@ public class ServiceProviderService : IServiceProviderService
         {
             var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
-                return _responseHandler.Unauthorized<WorkingAreaDto>("User not authenticated");
+                return _responseHandler.Unauthorized<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>("User not authenticated");
 
             var profile = await _unitOfWork.ServiceProviderProfiles
                 .FindSingleAsync(p => p.UserId == userId);
 
             if (profile == null)
-                return _responseHandler.NotFound<WorkingAreaDto>("Profile not found");
+                return _responseHandler.NotFound<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>("Profile not found");
 
             // Check if governorate already exists
             var exists = await _unitOfWork.ProviderWorkingAreas
                 .IsGovernorateExistsAsync(profile.Id, request.Governorate);
 
             if (exists)
-                return _responseHandler.BadRequest<WorkingAreaDto>("This governorate already exists in your working areas");
+                return _responseHandler.BadRequest<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>("This governorate already exists in your working areas");
 
             var workingArea = new ProviderWorkingArea
             {
@@ -451,7 +453,7 @@ public class ServiceProviderService : IServiceProviderService
             await _unitOfWork.ProviderWorkingAreas.AddAsync(workingArea);
             await _unitOfWork.CompleteAsync();
 
-            var response = new WorkingAreaDto
+            var response = new ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto
             {
                 Id = workingArea.Id,
                 Governorate = workingArea.Governorate,
@@ -465,7 +467,7 @@ public class ServiceProviderService : IServiceProviderService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding working area");
-            return _responseHandler.ServerError<WorkingAreaDto>("Error adding working area");
+            return _responseHandler.ServerError<ElAnis.Entities.DTO.WorkingArea.WorkingAreaDto>("Error adding working area");
         }
     }
 
@@ -554,7 +556,7 @@ public class ServiceProviderService : IServiceProviderService
 
             var response = new AvailabilityCalendarResponse
             {
-                Availability = availability.Select(a => new AvailabilityDto
+                Availability = availability.Select(a => new ElAnis.Entities.DTO.Availability.AvailabilityDto
                 {
                     Id = a.Id,
                     Date = a.Date,
@@ -575,28 +577,29 @@ public class ServiceProviderService : IServiceProviderService
     }
 
 
-    public async Task<Response<AvailabilityDto>> AddAvailabilityAsync(
-            AddAvailabilityRequest request,
-            ClaimsPrincipal userClaims)
+    public async Task<Response<ElAnis.Entities.DTO.Availability.AvailabilityDto>> AddAvailabilityAsync(
+        AddAvailabilityRequest request,
+        ClaimsPrincipal userClaims)
     {
         try
         {
             var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
-                return _responseHandler.Unauthorized<AvailabilityDto>("User not authenticated");
+                return _responseHandler.Unauthorized<ElAnis.Entities.DTO.Availability.AvailabilityDto>("User not authenticated");
 
             var profile = await _unitOfWork.ServiceProviderProfiles
                 .FindSingleAsync(p => p.UserId == userId);
 
             if (profile == null)
-                return _responseHandler.NotFound<AvailabilityDto>("Profile not found");
+                return _responseHandler.NotFound<ElAnis.Entities.DTO.Availability.AvailabilityDto>("Profile not found");
 
-            // Check if date already exists
+            // ✅ الكود الجديد: التحقق من التاريخ + الـ Shift معاً
             var existing = await _unitOfWork.ProviderAvailabilities
-                .GetByDateAsync(profile.Id, request.Date);
+                .GetByDateAndShiftAsync(profile.Id, request.Date, request.AvailableShift);
 
             if (existing != null)
-                return _responseHandler.BadRequest<AvailabilityDto>("Availability for this date already exists. Please update it instead.");
+                return _responseHandler.BadRequest<ElAnis.Entities.DTO.Availability.AvailabilityDto>(
+                    $"Availability for {request.Date:yyyy-MM-dd} and shift {request.AvailableShift} already exists. Please update it instead.");
 
             var availability = new ProviderAvailability
             {
@@ -610,7 +613,7 @@ public class ServiceProviderService : IServiceProviderService
             await _unitOfWork.ProviderAvailabilities.AddAsync(availability);
             await _unitOfWork.CompleteAsync();
 
-            var response = new AvailabilityDto
+            var response = new ElAnis.Entities.DTO.Availability.AvailabilityDto
             {
                 Id = availability.Id,
                 Date = availability.Date,
@@ -624,12 +627,10 @@ public class ServiceProviderService : IServiceProviderService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding availability");
-            return _responseHandler.ServerError<AvailabilityDto>("Error adding availability");
+            return _responseHandler.ServerError<ElAnis.Entities.DTO.Availability.AvailabilityDto>("Error adding availability");
         }
     }
-
-
-    public async Task<Response<AvailabilityDto>> UpdateAvailabilityAsync(
+    public async Task<Response<ElAnis.Entities.DTO.Availability.AvailabilityDto>> UpdateAvailabilityAsync(
            UpdateAvailabilityRequest request,
            ClaimsPrincipal userClaims)
     {
@@ -637,19 +638,19 @@ public class ServiceProviderService : IServiceProviderService
         {
             var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
-                return _responseHandler.Unauthorized<AvailabilityDto>("User not authenticated");
+                return _responseHandler.Unauthorized<ElAnis.Entities.DTO.Availability.AvailabilityDto>("User not authenticated");
 
             var profile = await _unitOfWork.ServiceProviderProfiles
                 .FindSingleAsync(p => p.UserId == userId);
 
             if (profile == null)
-                return _responseHandler.NotFound<AvailabilityDto>("Profile not found");
+                return _responseHandler.NotFound<ElAnis.Entities.DTO.Availability.AvailabilityDto>("Profile not found");
 
             var availability = await _unitOfWork.ProviderAvailabilities
                 .FindSingleAsync(a => a.Id == request.Id && a.ServiceProviderId == profile.Id);
 
             if (availability == null)
-                return _responseHandler.NotFound<AvailabilityDto>("Availability not found");
+                return _responseHandler.NotFound<ElAnis.Entities.DTO.Availability.AvailabilityDto>("Availability not found");
 
             availability.IsAvailable = request.IsAvailable;
             availability.AvailableShift = request.AvailableShift;
@@ -659,7 +660,7 @@ public class ServiceProviderService : IServiceProviderService
             _unitOfWork.ProviderAvailabilities.Update(availability);
             await _unitOfWork.CompleteAsync();
 
-            var response = new AvailabilityDto
+            var response = new ElAnis.Entities.DTO.Availability.AvailabilityDto
             {
                 Id = availability.Id,
                 Date = availability.Date,
@@ -673,7 +674,7 @@ public class ServiceProviderService : IServiceProviderService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating availability");
-            return _responseHandler.ServerError<AvailabilityDto>("Error updating availability");
+            return _responseHandler.ServerError<ElAnis.Entities.DTO.Availability.AvailabilityDto>("Error updating availability");
         }
     }
 
@@ -793,5 +794,139 @@ public class ServiceProviderService : IServiceProviderService
         };
     }
 
+
+    public async Task<Response<PaginatedResult<ProviderSummaryResponse>>> SearchProvidersAsync(GetProvidersRequest request)
+    {
+        try
+        {
+            var (items, totalCount) = await _unitOfWork.ServiceProviderProfiles.SearchProvidersAsync(
+                request.Available,
+                request.Governorate,
+                request.City,
+                request.CategoryId,
+                request.Search,
+                request.Page,
+                request.PageSize
+            );
+
+            var responses = items.Select(p => new ProviderSummaryResponse
+            {
+                Id = p.Id,
+                FullName = $"{p.User.FirstName} {p.User.LastName}",
+                //  AvatarUrl = p.User.ProfilePictureUrl,
+                Categories = p.Categories.Select(c => new CategoryDto
+                {
+                    Id = c.Category.Id,
+                    Name = c.Category.Name
+                }).ToList(),
+                Location = p.WorkingAreas.FirstOrDefault() != null
+                    ? new LocationDto
+                    {
+                        Governorate = p.WorkingAreas.First().Governorate,
+                        City = p.WorkingAreas.First().City
+                    }
+                    : new LocationDto(),
+                IsAvailable = p.IsAvailable,
+                AverageRating = p.AverageRating,
+                HourlyRate = p.HourlyRate
+            }).ToList();
+            var paginatedResponse = new PaginatedResult<ProviderSummaryResponse>
+            {
+                Items = responses,
+                Page = request.Page,
+                PageSize = request.PageSize,
+                TotalCount = totalCount
+            };
+
+            return _responseHandler.Success(paginatedResponse, "Providers retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching providers");
+            return _responseHandler.ServerError<PaginatedResult<ProviderSummaryResponse>>("Error retrieving providers");
+        }
+    }
+
+    public async Task<Response<ProviderDetailResponse>> GetProviderDetailAsync(Guid providerId)
+    {
+        try
+        {
+            var provider = await _unitOfWork.ServiceProviderProfiles.GetProviderWithDetailsAsync(providerId);
+            if (provider == null)
+                return _responseHandler.NotFound<ProviderDetailResponse>("Provider not found");
+
+            // Aggregate shift prices from categories
+            var shiftPrices = new List<ShiftPriceDto>();
+            foreach (var providerCategory in provider.Categories)
+            {
+                var pricing = providerCategory.Category.Pricing.Where(p => p.IsActive);
+                foreach (var price in pricing)
+                {
+                    shiftPrices.Add(new ShiftPriceDto
+                    {
+                        CategoryId = providerCategory.CategoryId,
+                        CategoryName = providerCategory.Category.Name,
+                        ShiftType = price.ShiftType,
+                        ShiftTypeName = GetShiftTypeName(price.ShiftType),
+                        PricePerShift = price.PricePerShift,
+                        PricingId = price.Id
+                    });
+                }
+            }
+
+            var response = new ProviderDetailResponse
+            {
+                Id = provider.Id,
+                FullName = $"{provider.User.FirstName} {provider.User.LastName}",
+
+                Bio = provider.Bio,
+               // AvatarUrl = provider.User.ProfilePictureUrl,
+                Categories = provider.Categories.Select(c => new CategoryDto
+                {
+                    Id = c.Category.Id,
+                    Name = c.Category.Name
+                }).ToList(),
+                WorkingAreas = provider.WorkingAreas.Select(w => new  ProviderWorkingAreaDto
+                {
+                    Governorate = w.Governorate,
+                    City = w.City,
+                    District = w.District
+                }).ToList(),
+                Availability = provider.Availability
+                    .OrderBy(a => a.Date)
+                    .Take(30)
+                    .Select(a => new ElAnis.Entities.DTO.Provider.AvailabilityDto
+                    {
+                        Date = a.Date,
+                        IsAvailable = a.IsAvailable,
+                        AvailableShift = a.AvailableShift,
+                        ShiftName = a.AvailableShift.HasValue ? GetShiftTypeName(a.AvailableShift.Value) : null
+                    }).ToList(),
+                ShiftPrices = shiftPrices,
+                AverageRating = provider.AverageRating,
+                TotalReviews = provider.TotalReviews,
+                HourlyRate = provider.HourlyRate,
+                IsAvailable = provider.IsAvailable
+            };
+
+            return _responseHandler.Success(response, "Provider details retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting provider details");
+            return _responseHandler.ServerError<ProviderDetailResponse>("Error retrieving provider details");
+        }
+    }
+
+    private string GetShiftTypeName(ShiftType shiftType)
+    {
+        return shiftType switch
+        {
+            ShiftType.ThreeHours => "3 Hours",
+            ShiftType.TwelveHours => "12 Hours",
+            ShiftType.TwentyFourHours => "24 Hours",
+            _ => "Unknown"
+        };
+    }
 
 }

@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-
 using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.Models;
 using ElAnis.Entities.Models.Auth.Identity;
@@ -258,7 +257,7 @@ namespace ElAnis.DataAccess.Services.Admin
                     a => a.Status == ServiceProviderApplicationStatus.Pending);
 
                 // Get additional stats using generic repository
-                var serviceRequestRepo = _unitOfWork.Repository<ServiceRequest>();
+                var serviceRequestRepo = _unitOfWork.Repository<ElAnis.Entities.Models.ServiceRequest>();
                 var reviewRepo = _unitOfWork.Repository<Review>();
 
                 stats.TotalServiceRequests = await serviceRequestRepo.CountAsync();

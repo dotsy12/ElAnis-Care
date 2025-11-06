@@ -15,6 +15,7 @@ namespace ElAnis.Utilities.Enum
         Paid = 4,           // تم الدفع
         InProgress = 5,     // جاري التنفيذ
         Completed = 6,      // تم الإكمال
-        Cancelled = 7       // ملغي
+        Cancelled = 7,       // ملغي
+        Rejected = 8        // مرفوض من البروفايدر
     }
 }

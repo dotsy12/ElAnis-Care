@@ -70,6 +70,7 @@ namespace ElAnis.DataAccess.Services.Auth
             // Generate tokens
             var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
 
+            // إنشاء الريسبونس الأساسي
             var response = new LoginResponse
             {
                 Id = user.Id,
@@ -78,10 +79,22 @@ namespace ElAnis.DataAccess.Services.Auth
                 Role = roles.FirstOrDefault(),
                 IsEmailConfirmed = user.EmailConfirmed,
                 AccessToken = tokens.AccessToken,
-                RefreshToken = tokens.RefreshToken,
+                RefreshToken = tokens.RefreshToken
             };
 
+            if (roles.Contains("Provider"))
+            {
+                var application = await _unitOfWork.ServiceProviderApplications.GetByUserIdAsync(user.Id);
+
+                if (application != null)
+                {
+                    response.ProviderStatus = application.Status; // الحالة من الأبلكيشن مش البروفايل
+                }
+            }
+
+
             return _responseHandler.Success(response, "Login successful.");
+          
         }
 
         public async Task<Response<ForgetPasswordResponse>> ForgotPasswordAsync(ForgetPasswordRequest model)

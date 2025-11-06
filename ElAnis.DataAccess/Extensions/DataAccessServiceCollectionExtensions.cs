@@ -20,6 +20,9 @@ using Microsoft.Extensions.DependencyInjection;
 using ElAnis.DataAccess.Interfaces;
 using ElAnis.DataAccess.Repositories;
 using ElAnis.DataAccess.Services.ServiceProvider;
+using ElAnis.DataAccess.Services.ServicePricing;
+using ElAnis.DataAccess.Services.ServiceRequest;
+using ElAnis.DataAccess.Services.Payment;
 
 
 namespace ElAnis.DataAccess.Extensions
@@ -45,6 +48,8 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IServiceProviderProfileRepository, ServiceProviderProfileRepository>();
             services.AddScoped<ICategoryRepository, CategoryRepository>();
             services.AddScoped<IServiceProviderCategoryRepository, ServiceProviderCategoryRepository>();
+            services.AddScoped<IServiceRequestRepository, ServiceRequestRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
 
             return services;
         }
@@ -64,6 +69,7 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IImageUploadService, CloudinaryImageUploadService>();
             services.AddScoped<ITokenStoreService, TokenStoreService>();
+            services.AddScoped<IPaymentService, PaymentService>();
 
             // Business Logic Services
             services.AddScoped<IAuthService, AuthService>();
@@ -71,7 +77,8 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<IServiceProviderService, ServiceProviderService>();
-
+            services.AddScoped<IServicePricingService, ServicePricingService>();
+            services.AddScoped<IServiceRequestService, ServiceRequestService>();
             return services;
         }
 

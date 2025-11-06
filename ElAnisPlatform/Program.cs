@@ -2,6 +2,7 @@
 using ElAnis.DataAccess.ApplicationContext;
 using ElAnis.DataAccess.Extensions;
 using ElAnis.DataAccess.Seeder;
+using ElAnis.DataAccess.Services.Payment;
 using ElAnis.Entities.Models.Auth.Identity;
 using ElAnis.Entities.Shared.Bases;
 using ElAnis.Utilities.Configurations;
@@ -44,6 +45,12 @@ namespace ElAnisPlatform
             builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection("Authorization:Google"));
+
+            // Stripe Configuration
+            builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+
+            // Payment Service
+            builder.Services.AddScoped<IPaymentService, PaymentService>();
 
             builder.Services.AddScoped<ResponseHandler>();
             builder.Services.AddAuthenticationAndAuthorization(builder.Configuration);

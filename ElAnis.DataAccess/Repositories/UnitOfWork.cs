@@ -27,14 +27,28 @@ namespace ElAnis.DataAccess
         private IServiceProviderCategoryRepository? _serviceProviderCategories;
         private IProviderWorkingAreaRepository? _providerWorkingAreas;
         private IProviderAvailabilityRepository? _providerAvailabilities;
+        private IServicePricingRepository? _servicePricings;
+        private IServiceRequestRepository? _serviceRequests;
+        private IPaymentRepository? _payments;
+
         public UnitOfWork(AuthContext context)
         {
             _context = context;
             _repositories = new ConcurrentDictionary<Type, object>();
         }
 
+
+
+        public IPaymentRepository Payments =>
+            _payments ??= new PaymentRepository(_context);
         public IUserRepository Users =>
             _users ??= new UserRepository(_context);
+
+        public IServiceRequestRepository ServiceRequests =>
+    _serviceRequests ??= new ServiceRequestRepository(_context);
+
+        public IServicePricingRepository ServicePricings =>
+    _servicePricings ??= new ServicePricingRepository(_context);
 
         public IServiceProviderApplicationRepository ServiceProviderApplications =>
             _serviceProviderApplications ??= new ServiceProviderApplicationRepository(_context);

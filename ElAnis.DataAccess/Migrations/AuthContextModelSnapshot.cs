@@ -204,7 +204,7 @@ namespace ElAnis.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserRefreshTokens");
+                    b.ToTable("UserRefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.Category", b =>
@@ -481,7 +481,7 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasIndex("ServiceRequestId")
                         .IsUnique();
 
-                    b.ToTable("Reviews", t =>
+                    b.ToTable("Reviews", null, t =>
                         {
                             t.HasCheckConstraint("CK_Review_Rating", "Rating >= 1 AND Rating <= 5");
                         });
@@ -731,7 +731,7 @@ namespace ElAnis.DataAccess.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("ServiceProviderProfiles");
+                    b.ToTable("ServiceProviderProfiles", (string)null);
                 });
 
             modelBuilder.Entity("ElAnis.Entities.Models.ServiceRequest", b =>
@@ -824,7 +824,7 @@ namespace ElAnis.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DataProtectionKeys");
+                    b.ToTable("DataProtectionKeys", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

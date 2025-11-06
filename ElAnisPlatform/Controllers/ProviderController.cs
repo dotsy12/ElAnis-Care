@@ -1,5 +1,7 @@
 ﻿using ElAnis.DataAccess.Services.ServiceProvider;
+using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.DTO.Availability;
+using ElAnis.Entities.DTO.Provider;
 using ElAnis.Entities.DTO.ServiceProviderProfile;
 using ElAnis.Entities.DTO.WorkingArea;
 using ElAnis.Entities.Shared.Bases;
@@ -104,6 +106,59 @@ namespace ElAnis.API.Controllers
             return StatusCode((int)result.StatusCode, result);
         }
 
+
+
+        /// <summary>
+        /// Search and browse service providers with filters
+        /// </summary>
+        /// <param name="request">Search filters (available, location, category, etc.)</param>
+        /// <returns>Paginated list of provider summaries</returns>
+        /// <response code="200">Providers retrieved successfully</response>
+        /// <response code="400">Invalid request parameters</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet]
+        [ProducesResponseType(typeof(Response<PaginatedResult<ProviderSummaryResponse>>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> SearchProviders([FromQuery] GetProvidersRequest request)
+        {
+            if (request.Page < 1)
+                return BadRequest(_responseHandler.BadRequest<object>("Page must be greater than 0"));
+
+            if (request.PageSize < 1 || request.PageSize > 100)
+                return BadRequest(_responseHandler.BadRequest<object>("PageSize must be between 1 and 100"));
+
+            var response = await _providerService.SearchProvidersAsync(request);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Get detailed provider profile with categories, pricing, and availability
+        /// </summary>
+        /// <param name="providerId">Provider ID</param>
+        /// <returns>Complete provider profile</returns>
+        /// <response code="200">Provider details retrieved successfully</response>
+        /// <response code="400">Invalid provider ID</response>
+        /// <response code="404">Provider not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet("{providerId}")]
+        [ProducesResponseType(typeof(Response<ProviderDetailResponse>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 404)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> GetProviderDetail(Guid providerId)
+        {
+            if (providerId == Guid.Empty)
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid provider ID"));
+
+            var response = await _providerService.GetProviderDetailAsync(providerId);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+
+
+
+        
         // ===== AVAILABILITY =====
         /// <summary>
         /// Toggles provider availability (متاح / غير متاح).

@@ -16,30 +16,27 @@ namespace ElAnis.DataAccess.Repositories
     {
         public ProviderAvailabilityRepository(AuthContext context) : base(context) { }
 
-        public async Task<List<ProviderAvailability>> GetProviderAvailabilityAsync(
-            Guid serviceProviderId,
+
+        public async Task<IEnumerable<ProviderAvailability>> GetProviderAvailabilityAsync(
+            Guid providerId,
             DateTime startDate,
             DateTime endDate)
         {
-            var start = startDate.Date;
-            var end = endDate.Date;
-
             return await _dbSet
-                .Where(a => a.ServiceProviderId == serviceProviderId
-                         && a.Date.Date >= start
-                         && a.Date.Date <= end)
+                .Where(a => a.ServiceProviderId == providerId
+                    && a.Date.Date >= startDate.Date
+                    && a.Date.Date <= endDate.Date)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
         }
 
-        public async Task<ProviderAvailability?> GetByDateAsync(Guid serviceProviderId, DateTime date)
-        {
-            var targetDate = date.Date;
-            return await _dbSet
-                .FirstOrDefaultAsync(a => a.ServiceProviderId == serviceProviderId
-                                       && a.Date.Date == targetDate);
-        }
 
+        public async Task<ProviderAvailability?> GetByDateAsync(Guid providerId, DateTime date)
+        {
+            return await _dbSet
+                .FirstOrDefaultAsync(a => a.ServiceProviderId == providerId
+                    && a.Date.Date == date.Date);
+        }
         public async Task<bool> IsAvailableOnDateAsync(
             Guid serviceProviderId,
             DateTime date,
@@ -78,5 +75,18 @@ namespace ElAnis.DataAccess.Repositories
                 .Distinct()
                 .ToListAsync();
         }
+        // ✅ الـ Method الجديدة
+        public async Task<ProviderAvailability?> GetByDateAndShiftAsync(
+           Guid providerId,
+           DateTime date,
+           ShiftType? shift)
+        {
+            return await _dbSet
+                .FirstOrDefaultAsync(a =>
+                    a.ServiceProviderId == providerId
+                    && a.Date.Date == date.Date
+                    && a.AvailableShift == shift);
+        }
+
     }
 }
