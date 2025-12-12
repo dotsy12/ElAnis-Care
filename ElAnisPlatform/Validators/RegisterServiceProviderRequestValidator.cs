@@ -92,7 +92,7 @@ namespace ElAnis.API.Validators
                 .Must(BeValidFileSize).WithMessage("Certificate size cannot exceed 5MB.")
                 .Must(BeValidFileType).WithMessage("Certificate must be PDF, JPG, or PNG.");
 
-            RuleFor(x => x.CVPath)
+            RuleFor(x => x.CV)
                 .NotNull().WithMessage("CV is required.")
                 .Must(BeValidFileSize).WithMessage("CV size cannot exceed 5MB.")
                 .Must(BeValidFileType).WithMessage("CV must be PDF, JPG, or PNG.");

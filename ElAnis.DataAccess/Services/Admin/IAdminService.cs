@@ -16,5 +16,14 @@ namespace ElAnis.DataAccess.Services.Admin
 		Task<Response<PaginatedResult<ServiceProviderApplicationDto>>> GetServiceProviderApplicationsAsync(int page, int pageSize);
 		Task<Response<AdminDashboardStatsDto>> GetDashboardStatsAsync();
 		Task<Response<PaginatedResult<ServiceProviderDto>>> GetServiceProvidersAsync(int page, int pageSize);
-	}
+        Task<Response<PaginatedResult<UserManagementDto>>> GetUsersAsync(GetUsersRequest request);
+        Task<Response<string>> SuspendUserAsync(string userId);
+        Task<Response<string>> ActivateUserAsync(string userId);
+
+        // ✅ Recent Bookings
+        Task<Response<List<RecentBookingDto>>> GetRecentBookingsAsync(int limit = 10);
+
+        // ✅ Payment Transactions
+        Task<Response<PaymentSummaryResponse>> GetPaymentTransactionsAsync();
+    }
 }

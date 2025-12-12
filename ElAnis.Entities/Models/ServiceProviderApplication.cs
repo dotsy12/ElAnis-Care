@@ -23,10 +23,15 @@ namespace ElAnis.Entities.Models
 		public string Experience { get; set; } = string.Empty;
 		public decimal HourlyRate { get; set; }///
 
-		// Documents
-		public string IdDocumentPath { get; set; } = string.Empty;
-		public string CertificatePath { get; set; } = string.Empty;
+        // Documents
+        public string IdDocumentPath { get; set; } = string.Empty;
+        public string? IdDocumentPublicId { get; set; } // ✅ أضف
+
+        public string CertificatePath { get; set; } = string.Empty;
+        public string? CertificatePublicId { get; set; } // ✅ أضف
+
         public string CVPath { get; set; } = string.Empty;
+        public string? CVPublicId { get; set; } // ✅ أضف
 
         // Selected Categories
         public List<Guid> SelectedCategories { get; set; } = new();

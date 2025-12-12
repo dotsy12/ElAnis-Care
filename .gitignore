@@ -370,3 +370,5 @@ obj/
 .idea/
 .env
 *.db
+ElAnisPlatform/appsettings.*.json
+ElAnisPlatform/appsettings.json

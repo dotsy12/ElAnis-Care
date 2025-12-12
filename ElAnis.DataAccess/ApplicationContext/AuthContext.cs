@@ -23,7 +23,56 @@ namespace ElAnis.DataAccess.ApplicationContext
 
 			// Apply configurations
 			modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
-		}
+
+
+            modelBuilder.Entity<Chat>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+
+                entity.HasOne(c => c.ServiceRequest)
+                    .WithMany()
+                    .HasForeignKey(c => c.ServiceRequestId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(c => c.ServiceProvider)
+                    .WithMany()
+                    .HasForeignKey(c => c.ServiceProviderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(c => c.ServiceRequestId).IsUnique();
+            });
+
+            // ChatMessage Configuration
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.HasKey(m => m.Id);
+
+                entity.HasOne(m => m.Chat)
+                    .WithMany(c => c.Messages)
+                    .HasForeignKey(m => m.ChatId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(m => m.Sender)
+                    .WithMany()
+                    .HasForeignKey(m => m.SenderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(m => new { m.ChatId, m.SentAt });
+            });
+
+            // UserConnection Configuration
+            modelBuilder.Entity<UserConnection>(entity =>
+            {
+                entity.HasKey(u => u.Id);
+                entity.HasIndex(u => u.UserId);
+                entity.HasIndex(u => u.ConnectionId).IsUnique();
+            });
+        }
 
 		public DbSet<ServiceProviderProfile> ServiceProviderProfiles { get; set; }
 		public DbSet<Category> Categories { get; set; }
@@ -40,5 +89,9 @@ namespace ElAnis.DataAccess.ApplicationContext
 		public DbSet <ServicePricing> ServicePricings { get; set; }
 
 		public DbSet<Notification> Notifications { get; set; }
-	}
+
+        public DbSet<Chat> Chats { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<UserConnection> UserConnections { get; set; }
+    }
 }

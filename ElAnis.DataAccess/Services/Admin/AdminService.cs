@@ -1,10 +1,12 @@
 ﻿using System.Security.Claims;
+using ElAnis.DataAccess.Repositories;
 using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.Models;
 using ElAnis.Entities.Models.Auth.Identity;
 using ElAnis.Entities.Shared.Bases;
 using ElAnis.Utilities.Enum;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace ElAnis.DataAccess.Services.Admin
@@ -258,7 +260,8 @@ namespace ElAnis.DataAccess.Services.Admin
 
                 // Get additional stats using generic repository
                 var serviceRequestRepo = _unitOfWork.Repository<ElAnis.Entities.Models.ServiceRequest>();
-                var reviewRepo = _unitOfWork.Repository<Review>();
+                var reviewRepo = _unitOfWork.Repository<ElAnis.Entities.Models.Review>();
+
 
                 stats.TotalServiceRequests = await serviceRequestRepo.CountAsync();
                 stats.CompletedServiceRequests = await serviceRequestRepo.CountAsync(
@@ -379,6 +382,273 @@ namespace ElAnis.DataAccess.Services.Admin
                 _logger.LogError(ex, "Error activating service provider {ServiceProviderId}", serviceProviderId);
                 return _responseHandler.ServerError<string>("Error activating service provider");
             }
+        }
+
+
+        // ✅ 1. User Management
+        public async Task<Response<PaginatedResult<UserManagementDto>>> GetUsersAsync(GetUsersRequest request)
+        {
+            try
+            {
+                var query = _userManager.Users.AsQueryable();
+
+                // Search
+                if (!string.IsNullOrWhiteSpace(request.Search))
+                {
+                    var searchLower = request.Search.ToLower();
+                    query = query.Where(u =>
+                        u.FirstName.ToLower().Contains(searchLower) ||
+                        u.LastName.ToLower().Contains(searchLower) ||
+                        u.Email.ToLower().Contains(searchLower) ||
+                        u.PhoneNumber.Contains(searchLower));
+                }
+
+                // Filter by Status
+                if (!string.IsNullOrWhiteSpace(request.Status))
+                {
+                    bool isActive = request.Status.ToLower() == "active";
+                    query = query.Where(u => !u.IsDeleted == isActive);
+                }
+
+                var totalCount = await query.CountAsync();
+
+                var users = await query
+                    .OrderByDescending(u => u.CreatedAt)
+                    .Skip((request.Page - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToListAsync();
+
+                var userDtos = new List<UserManagementDto>();
+
+                foreach (var user in users)
+                {
+                    var roles = await _userManager.GetRolesAsync(user);
+                    var role = roles.FirstOrDefault() ?? "user";
+
+                    userDtos.Add(new UserManagementDto
+                    {
+                        Id = user.Id,
+                        Name = $"{user.FirstName} {user.LastName}",
+                        Email = user.Email ?? "",
+                        Phone = user.PhoneNumber ?? "",
+                        Role = role.ToLower(),
+                        Status = !user.IsDeleted ? "active" : "inactive",
+                        Joined = user.CreatedAt,
+                        ProfilePicture = user.ProfilePicture
+                    });
+                }
+
+                // Filter by Role if specified
+                if (!string.IsNullOrWhiteSpace(request.Role))
+                {
+                    userDtos = userDtos.Where(u => u.Role.ToLower() == request.Role.ToLower()).ToList();
+                    totalCount = userDtos.Count;
+                }
+
+                var result = new PaginatedResult<UserManagementDto>
+                {
+                    Items = userDtos,
+                    TotalCount = totalCount,
+                    Page = request.Page,
+                    PageSize = request.PageSize
+                };
+
+                return _responseHandler.Success(result, "Users retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving users");
+                return _responseHandler.ServerError<PaginatedResult<UserManagementDto>>("Error retrieving users");
+            }
+        }
+
+        // ✅ 2. Suspend User
+        public async Task<Response<string>> SuspendUserAsync(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return _responseHandler.NotFound<string>("User not found");
+
+                user.IsDeleted = true;
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("User {UserId} suspended by admin", userId);
+                    return _responseHandler.Success<string>(null, "User suspended successfully");
+                }
+
+                return _responseHandler.BadRequest<string>("Failed to suspend user");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error suspending user {UserId}", userId);
+                return _responseHandler.ServerError<string>("Error suspending user");
+            }
+        }
+
+        // ✅ 3. Activate User
+        public async Task<Response<string>> ActivateUserAsync(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return _responseHandler.NotFound<string>("User not found");
+
+                user.IsDeleted = false;
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("User {UserId} activated by admin", userId);
+                    return _responseHandler.Success<string>(null, "User activated successfully");
+                }
+
+                return _responseHandler.BadRequest<string>("Failed to activate user");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error activating user {UserId}", userId);
+                return _responseHandler.ServerError<string>("Error activating user");
+            }
+        }
+
+        // ✅ 4. Recent Bookings
+        public async Task<Response<List<RecentBookingDto>>> GetRecentBookingsAsync(int limit = 10)
+        {
+            try
+            {
+                var requests = await _unitOfWork.ServiceRequests
+                    .GetQueryable()
+                    .Include(r => r.User)
+                    .Include(r => r.ServiceProvider).ThenInclude(sp => sp.User)
+                    .Include(r => r.Category)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var bookings = requests.Select(r => new RecentBookingDto
+                {
+                    Id = r.Id,
+                    UserName = $"{r.User.FirstName} {r.User.LastName}",
+                    ProviderName = r.ServiceProvider != null
+                        ? $"{r.ServiceProvider.User.FirstName} {r.ServiceProvider.User.LastName}"
+                        : "Not assigned",
+                    Date = r.PreferredDate,
+                    Shift = GetShiftName(r.ShiftType),
+                    Amount = r.TotalPrice,
+                    Status = GetBookingStatus(r.Status),
+                    CategoryName = r.Category.Name
+                }).ToList();
+
+                return _responseHandler.Success(bookings, "Recent bookings retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving recent bookings");
+                return _responseHandler.ServerError<List<RecentBookingDto>>("Error retrieving bookings");
+            }
+        }
+
+        // ✅ 5. Payment Transactions
+        public async Task<Response<PaymentSummaryResponse>> GetPaymentTransactionsAsync()
+        {
+            try
+            {
+                var payments = await _unitOfWork.Payments
+                    .GetQueryable()
+                    .Include(p => p.ServiceRequest)
+                        .ThenInclude(sr => sr.User)
+                    .Include(p => p.ServiceRequest)
+                        .ThenInclude(sr => sr.ServiceProvider)
+                        .ThenInclude(sp => sp.User)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .ToListAsync();
+
+                var transactions = payments.Select(p => new PaymentTransactionDto
+                {
+                    Id = p.Id,
+                    TransactionId = p.TransactionId ?? "N/A",
+                    UserName = $"{p.ServiceRequest.User.FirstName} {p.ServiceRequest.User.LastName}",
+                    ProviderName = p.ServiceRequest.ServiceProvider != null
+                        ? $"{p.ServiceRequest.ServiceProvider.User.FirstName} {p.ServiceRequest.ServiceProvider.User.LastName}"
+                        : "Not assigned",
+                    Date = p.CreatedAt,
+                    Amount = p.Amount,
+                    Status = GetPaymentStatus(p.PaymentStatus),
+                    PaymentMethod = GetPaymentMethodName(p.PaymentMethod),
+                    RequestId = p.ServiceRequestId
+                }).ToList();
+
+                var totalRevenue = payments
+                    .Where(p => p.PaymentStatus == PaymentStatus.Completed)
+                    .Sum(p => p.Amount);
+
+                var response = new PaymentSummaryResponse
+                {
+                    TotalRevenue = totalRevenue,
+                    Transactions = transactions
+                };
+
+                return _responseHandler.Success(response, "Payment transactions retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving payment transactions");
+                return _responseHandler.ServerError<PaymentSummaryResponse>("Error retrieving transactions");
+            }
+        }
+
+        // ✅ Helper Methods
+        private string GetShiftName(ShiftType shiftType)
+        {
+            return shiftType switch
+            {
+                ShiftType.ThreeHours => "3 Hours",
+                ShiftType.TwelveHours => "12 Hours",
+                ShiftType.TwentyFourHours => "24 Hours",
+                _ => "Unknown"
+            };
+        }
+
+        private string GetBookingStatus(ServiceRequestStatus status)
+        {
+            return status switch
+            {
+                ServiceRequestStatus.Completed => "completed",
+                ServiceRequestStatus.Pending => "pending",
+                ServiceRequestStatus.Cancelled => "cancelled",
+                ServiceRequestStatus.Accepted => "pending",
+                ServiceRequestStatus.Paid => "pending",
+                ServiceRequestStatus.InProgress => "pending",
+                ServiceRequestStatus.Rejected => "cancelled",
+                _ => "unknown"
+            };
+        }
+
+        private string GetPaymentStatus(PaymentStatus status)
+        {
+            return status switch
+            {
+                PaymentStatus.Completed => "completed",
+                PaymentStatus.Pending => "pending",
+                PaymentStatus.Failed => "failed",
+                _ => "unknown"
+            };
+        }
+
+        private string GetPaymentMethodName(PaymentMethod method)
+        {
+            return method switch
+            {
+                PaymentMethod.Cash => "Cash",
+                PaymentMethod.CreditCard => "Credit Card",
+                PaymentMethod.VodafoneCash => "Vodafone Cash",
+                _ => "Unknown"
+            };
         }
     }
 }

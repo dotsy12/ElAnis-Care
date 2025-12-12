@@ -231,6 +231,140 @@ namespace ElAnis.DataAccess.Services.ServiceRequest
             }
         }
 
+
+        /// <summary>
+        /// Provider starts the service (Paid → InProgress)
+        /// </summary>
+        public async Task<Response<ServiceRequestResponse>> StartRequestAsync(
+            Guid requestId,
+            ClaimsPrincipal userClaims)
+        {
+            try
+            {
+                var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return _responseHandler.Unauthorized<ServiceRequestResponse>("User not authenticated");
+
+                // Get request with details
+                var serviceRequest = await _unitOfWork.ServiceRequests.GetRequestWithDetailsAsync(requestId);
+                if (serviceRequest == null)
+                    return _responseHandler.NotFound<ServiceRequestResponse>("Service request not found");
+
+                // Verify this is the assigned provider
+                var providerProfile = await _unitOfWork.ServiceProviderProfiles
+                    .FindSingleAsync(p => p.UserId == userId);
+
+                if (providerProfile == null)
+                    return _responseHandler.Forbidden<ServiceRequestResponse>("Provider profile not found");
+
+                if (serviceRequest.ServiceProviderId != providerProfile.Id)
+                    return _responseHandler.Forbidden<ServiceRequestResponse>("You are not authorized to start this request");
+
+                // Verify request status is Paid
+                if (serviceRequest.Status != ServiceRequestStatus.Paid)
+                    return _responseHandler.BadRequest<ServiceRequestResponse>(
+                        $"Cannot start request. Current status is {serviceRequest.Status}. Request must be Paid first.");
+
+                // Update status to InProgress
+                serviceRequest.Status = ServiceRequestStatus.InProgress;
+                serviceRequest.StartedAt = DateTime.UtcNow;
+
+                _unitOfWork.ServiceRequests.Update(serviceRequest);
+                await _unitOfWork.CompleteAsync();
+
+                _logger.LogInformation(
+                    "Service request {RequestId} started by provider {ProviderId} at {StartedAt}",
+                    requestId, providerProfile.Id, serviceRequest.StartedAt);
+
+                var response = MapToResponse(
+                    serviceRequest,
+                    serviceRequest.Category,
+                    $"{providerProfile.User.FirstName} {providerProfile.User.LastName}",
+                    null
+                );
+
+                return _responseHandler.Success(response, "Service started successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting service request {RequestId}", requestId);
+                return _responseHandler.ServerError<ServiceRequestResponse>("Error starting service request");
+            }
+        }
+
+        /// <summary>
+        /// Provider completes the service (InProgress → Completed)
+        /// </summary>
+        public async Task<Response<ServiceRequestResponse>> CompleteRequestAsync(
+            Guid requestId,
+            ClaimsPrincipal userClaims)
+        {
+            try
+            {
+                var userId = userClaims.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return _responseHandler.Unauthorized<ServiceRequestResponse>("User not authenticated");
+
+                // Get request with details
+                var serviceRequest = await _unitOfWork.ServiceRequests.GetRequestWithDetailsAsync(requestId);
+                if (serviceRequest == null)
+                    return _responseHandler.NotFound<ServiceRequestResponse>("Service request not found");
+
+                // Verify this is the assigned provider
+                var providerProfile = await _unitOfWork.ServiceProviderProfiles
+                    .FindSingleAsync(p => p.UserId == userId);
+
+                if (providerProfile == null)
+                    return _responseHandler.Forbidden<ServiceRequestResponse>("Provider profile not found");
+
+                if (serviceRequest.ServiceProviderId != providerProfile.Id)
+                    return _responseHandler.Forbidden<ServiceRequestResponse>("You are not authorized to complete this request");
+
+                // Verify request status is InProgress
+                if (serviceRequest.Status != ServiceRequestStatus.InProgress)
+                    return _responseHandler.BadRequest<ServiceRequestResponse>(
+                        $"Cannot complete request. Current status is {serviceRequest.Status}. Request must be InProgress first.");
+
+                // Update status to Completed
+                serviceRequest.Status = ServiceRequestStatus.Completed;
+                serviceRequest.CompletedAt = DateTime.UtcNow;
+
+                // Update provider statistics
+                providerProfile.CompletedJobs++;
+                providerProfile.TotalEarnings += serviceRequest.TotalPrice;
+
+                // Calculate worked days (if not already counted for this date)
+                if (serviceRequest.PreferredDate.Date != DateTime.UtcNow.Date)
+                {
+                    providerProfile.WorkedDays++;
+                }
+
+                _unitOfWork.ServiceRequests.Update(serviceRequest);
+                _unitOfWork.ServiceProviderProfiles.Update(providerProfile);
+                await _unitOfWork.CompleteAsync();
+
+                _logger.LogInformation(
+                    "Service request {RequestId} completed by provider {ProviderId} at {CompletedAt}. " +
+                    "Provider stats updated: CompletedJobs={CompletedJobs}, TotalEarnings={TotalEarnings}",
+                    requestId, providerProfile.Id, serviceRequest.CompletedAt,
+                    providerProfile.CompletedJobs, providerProfile.TotalEarnings);
+
+                var response = MapToResponse(
+                    serviceRequest,
+                    serviceRequest.Category,
+                    $"{providerProfile.User.FirstName} {providerProfile.User.LastName}",
+                    null
+                );
+
+                return _responseHandler.Success(response, "Service completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing service request {RequestId}", requestId);
+                return _responseHandler.ServerError<ServiceRequestResponse>("Error completing service request");
+            }
+        }
+
         // Helper method to map entity to response DTO
         private ServiceRequestResponse MapToResponse(
             ElAnis.Entities.Models.ServiceRequest request,
@@ -257,7 +391,11 @@ namespace ElAnis.DataAccess.Services.ServiceRequest
                 Description = request.Description,
                 CreatedAt = request.CreatedAt,
                 AcceptedAt = request.AcceptedAt,
-                CanPay = request.Status == ServiceRequestStatus.Accepted && request.Payment == null
+                 StartedAt = request.StartedAt,        // ✅ Add
+                CompletedAt = request.CompletedAt,    // ✅ Add
+                CanPay = request.Status == ServiceRequestStatus.Accepted && request.Payment == null,
+                CanStart = request.Status == ServiceRequestStatus.Paid,           // ✅ Add
+                CanComplete = request.Status == ServiceRequestStatus.InProgress   // ✅ Add
             };
         }
 

@@ -1,4 +1,5 @@
 ﻿using ElAnis.Utilities.Enum;
+using Microsoft.AspNetCore.Http;
 
 namespace ElAnis.Entities.DTO.Account.Auth.Register
 {
@@ -9,7 +10,9 @@ namespace ElAnis.Entities.DTO.Account.Auth.Register
 		public string PhoneNumber { get; set; } = string.Empty;
 		public string Role { get; set; } = string.Empty;
 		public bool IsEmailConfirmed { get; set; }
-		public ServiceProviderStatus? ProviderStatus { get; set; }
+       public string? ProfilePicture { get; set; }
+
+        public ServiceProviderStatus? ProviderStatus { get; set; }
 		public string AccessToken { get; set; } = string.Empty;
 		public string RefreshToken { get; set; } = string.Empty;
 		public string Message { get; set; } = string.Empty;

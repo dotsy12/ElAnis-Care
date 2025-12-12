@@ -30,7 +30,17 @@ namespace ElAnis.DataAccess
         private IServicePricingRepository? _servicePricings;
         private IServiceRequestRepository? _serviceRequests;
         private IPaymentRepository? _payments;
+        private IReviewRepository? _reviews;
 
+
+
+        private IChatRepository? _chats;
+        private IChatMessageRepository? _chatMessages;
+
+     
+
+        public IGenericRepository<UserConnection> UserConnections =>
+            Repository<UserConnection>();
         public UnitOfWork(AuthContext context)
         {
             _context = context;
@@ -38,6 +48,13 @@ namespace ElAnis.DataAccess
         }
 
 
+        public IChatRepository Chats =>
+         _chats ??= new ChatRepository(_context);
+
+        public IChatMessageRepository ChatMessages =>
+            _chatMessages ??= new ChatMessageRepository(_context);
+        public IReviewRepository Reviews =>
+    _reviews ??= new ReviewRepository(_context);
 
         public IPaymentRepository Payments =>
             _payments ??= new PaymentRepository(_context);

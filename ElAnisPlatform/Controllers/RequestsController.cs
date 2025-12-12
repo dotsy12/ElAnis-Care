@@ -146,5 +146,65 @@ namespace ElAnis.API.Controllers
             var result = await _requestService.RespondToRequestAsync(requestId, response, User);
             return StatusCode((int)result.StatusCode, result);
         }
+
+
+
+        /// <summary>
+        /// Provider starts the service (changes status from Paid to InProgress)
+        /// </summary>
+        /// <param name="requestId">Service request ID</param>
+        /// <returns>Updated service request</returns>
+        /// <response code="200">Service started successfully</response>
+        /// <response code="400">Invalid request ID or request not in Paid status</response>
+        /// <response code="401">Unauthorized - Authentication required</response>
+        /// <response code="403">Forbidden - Not authorized to start this request</response>
+        /// <response code="404">Request not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpPost("{requestId}/start")]
+        [Authorize(Roles = "Provider")]
+        [ProducesResponseType(typeof(Response<ServiceRequestResponse>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 404)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> StartRequest(Guid requestId)
+        {
+            if (requestId == Guid.Empty)
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid request ID"));
+
+            var result = await _requestService.StartRequestAsync(requestId, User);
+            return StatusCode((int)result.StatusCode, result);
+        }
+
+        /// <summary>
+        /// Provider completes the service (changes status from InProgress to Completed)
+        /// </summary>
+        /// <param name="requestId">Service request ID</param>
+        /// <returns>Updated service request with completion timestamp</returns>
+        /// <response code="200">Service completed successfully</response>
+        /// <response code="400">Invalid request ID or request not in InProgress status</response>
+        /// <response code="401">Unauthorized - Authentication required</response>
+        /// <response code="403">Forbidden - Not authorized to complete this request</response>
+        /// <response code="404">Request not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpPost("{requestId}/complete")]
+        [Authorize(Roles = "Provider")]
+        [ProducesResponseType(typeof(Response<ServiceRequestResponse>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 404)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> CompleteRequest(Guid requestId)
+        {
+            if (requestId == Guid.Empty)
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid request ID"));
+
+            var result = await _requestService.CompleteRequestAsync(requestId, User);
+            return StatusCode((int)result.StatusCode, result);
+        }
     }
+
+
 }

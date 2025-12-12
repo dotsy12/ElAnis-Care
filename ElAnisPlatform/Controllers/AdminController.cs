@@ -1,4 +1,5 @@
-﻿using ElAnis.DataAccess.Services.Admin;
+﻿using ElAnis.DataAccess;
+using ElAnis.DataAccess.Services.Admin;
 using ElAnis.Entities.DTO.Account.Auth.Register;
 using ElAnis.Entities.DTO.Admin;
 using ElAnis.Entities.Shared.Bases;
@@ -9,47 +10,47 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ElAnis.API.Controllers
 {
-	/// <summary>
-	/// Controller for administrative operations including service provider management and dashboard statistics
-	/// </summary>
-	[Route("api/[controller]")]
-	[ApiController]
-	[Authorize(Policy = "AdminOnly")]
-	public class AdminController : ControllerBase
-	{
-		private readonly IAdminService _adminService;
-		private readonly ResponseHandler _responseHandler;
-		private readonly IValidator<RejectApplicationRequest> _rejectApplicationValidator;
-		private readonly IValidator<SuspendServiceProviderRequest> _suspendServiceProviderValidator;
+    /// <summary>
+    /// Controller for administrative operations
+    /// </summary>
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize(Policy = "AdminOnly")]
+    public class AdminController : ControllerBase
+    {
+        private readonly IAdminService _adminService;
+        private readonly IUnitOfWork _unitOfWork; // ✅ أضف هذا
+        private readonly ResponseHandler _responseHandler;
+        private readonly IValidator<RejectApplicationRequest> _rejectApplicationValidator;
+        private readonly IValidator<SuspendServiceProviderRequest> _suspendServiceProviderValidator;
 
-		/// <summary>
-		/// Initializes a new instance of AdminController
-		/// </summary>
-		/// <param name="adminService">The admin service</param>
-		/// <param name="responseHandler">Response handler for consistent API responses</param>
-		/// <param name="rejectApplicationValidator">Validator for reject application requests</param>
-		/// <param name="suspendServiceProviderValidator">Validator for suspend service provider requests</param>
-		public AdminController(
-			IAdminService adminService,
-			ResponseHandler responseHandler,
-			IValidator<RejectApplicationRequest> rejectApplicationValidator,
-			IValidator<SuspendServiceProviderRequest> suspendServiceProviderValidator)
-		{
-			_adminService = adminService;
-			_responseHandler = responseHandler;
-			_rejectApplicationValidator = rejectApplicationValidator;
-			_suspendServiceProviderValidator = suspendServiceProviderValidator;
-		}
+        /// <summary>
+        /// Initializes a new instance of AdminController
+        /// </summary>
+        public AdminController(
+            IAdminService adminService,
+            IUnitOfWork unitOfWork, // ✅ أضف هذا
+            ResponseHandler responseHandler,
+            IValidator<RejectApplicationRequest> rejectApplicationValidator,
+            IValidator<SuspendServiceProviderRequest> suspendServiceProviderValidator)
+        {
+            _adminService = adminService;
+            _unitOfWork = unitOfWork; // ✅ أضف هذا
+            _responseHandler = responseHandler;
+            _rejectApplicationValidator = rejectApplicationValidator;
+            _suspendServiceProviderValidator = suspendServiceProviderValidator;
+        }
 
-		/// <summary>
-		/// Retrieves dashboard statistics for admin panel
-		/// </summary>
-		/// <returns>Dashboard statistics including user counts, applications, and system metrics</returns>
-		/// <response code="200">Statistics retrieved successfully</response>
-		/// <response code="401">Unauthorized - Authentication required</response>
-		/// <response code="403">Forbidden - Admin access required</response>
-		/// <response code="500">Internal server error</response>
-		[HttpGet("dashboard-stats")]
+
+        /// <summary>
+        /// Retrieves dashboard statistics for admin panel
+        /// </summary>
+        /// <returns>Dashboard statistics including user counts, applications, and system metrics</returns>
+        /// <response code="200">Statistics retrieved successfully</response>
+        /// <response code="401">Unauthorized - Authentication required</response>
+        /// <response code="403">Forbidden - Admin access required</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet("dashboard-stats")]
 		[ProducesResponseType(typeof(Response<AdminDashboardStatsDto>), 200)]
 		[ProducesResponseType(typeof(Response<object>), 401)]
 		[ProducesResponseType(typeof(Response<object>), 403)]
@@ -72,7 +73,7 @@ namespace ElAnis.API.Controllers
 		/// <response code="403">Forbidden - Admin access required</response>
 		/// <response code="500">Internal server error</response>
 		[HttpGet("service-provider-applications")]
-		[ProducesResponseType(typeof(Response <PaginatedResult<ServiceProviderApplicationDto>>), 200)]
+		[ProducesResponseType(typeof(Response<PaginatedResult<ServiceProviderApplicationDto>>), 200)]
 		[ProducesResponseType(typeof(Response<object>), 400)]
 		[ProducesResponseType(typeof(Response<object>), 401)]
 		[ProducesResponseType(typeof(Response<object>), 403)]
@@ -104,34 +105,62 @@ namespace ElAnis.API.Controllers
 		[ProducesResponseType(typeof(Response<object>), 403)]
 		[ProducesResponseType(typeof(Response<object>), 404)]
 		[ProducesResponseType(typeof(Response<object>), 500)]
-		public async Task<IActionResult> GetServiceProviderApplicationById(Guid id)
-		{
-			if (id == Guid.Empty)
-				return BadRequest(_responseHandler.BadRequest<object>("Invalid application ID"));
+      
+        public async Task<IActionResult> GetServiceProviderApplicationById(Guid id)
+        {
+            if (id == Guid.Empty)
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid application ID"));
 
-			var response = await _adminService.GetServiceProviderApplicationByIdAsync(id);
-			return StatusCode((int)response.StatusCode, response);
-		}
+            var application = await _unitOfWork.ServiceProviderApplications
+                .GetApplicationWithDetailsAsync(id);
 
-		/// <summary>
-		/// Approves a service provider application and creates service provider profile
-		/// </summary>
-		/// <param name="id">The unique identifier of the application to approve</param>
-		/// <returns>Approval confirmation</returns>
-		/// <remarks>
-		/// This action will:
-		/// - Change application status to Approved
-		/// - Change user role from USER to PROVIDER  
-		/// - Create ServiceProviderProfile
-		/// - Link selected categories to the service provider
-		/// </remarks>
-		/// <response code="200">Application approved successfully</response>
-		/// <response code="400">Invalid application ID or application already reviewed</response>
-		/// <response code="401">Unauthorized - Authentication required</response>
-		/// <response code="403">Forbidden - Admin access required</response>
-		/// <response code="404">Application not found</response>
-		/// <response code="500">Internal server error</response>
-		[HttpPost("service-provider-applications/{id}/approve")]
+            if (application == null)
+                return NotFound(_responseHandler.NotFound<object>("Application not found"));
+
+            // ✅ Return with document URLs
+            var response = new
+            {
+                application.Id,
+                application.FirstName,
+                application.LastName,
+                
+                application.PhoneNumber,
+                application.Bio,
+                application.Experience,
+                application.HourlyRate,
+                Documents = new
+                {
+                    IdDocument = application.IdDocumentPath,
+                    Certificate = application.CertificatePath,
+                    CV = application.CVPath
+                },
+                application.Status,
+                application.CreatedAt,
+                application.ReviewedAt
+            };
+
+            return Ok(_responseHandler.Success(response, "Application retrieved successfully"));
+        }
+
+        /// <summary>
+        /// Approves a service provider application and creates service provider profile
+        /// </summary>
+        /// <param name="id">The unique identifier of the application to approve</param>
+        /// <returns>Approval confirmation</returns>
+        /// <remarks>
+        /// This action will:
+        /// - Change application status to Approved
+        /// - Change user role from USER to PROVIDER  
+        /// - Create ServiceProviderProfile
+        /// - Link selected categories to the service provider
+        /// </remarks>
+        /// <response code="200">Application approved successfully</response>
+        /// <response code="400">Invalid application ID or application already reviewed</response>
+        /// <response code="401">Unauthorized - Authentication required</response>
+        /// <response code="403">Forbidden - Admin access required</response>
+        /// <response code="404">Application not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpPost("service-provider-applications/{id}/approve")]
 		[ProducesResponseType(typeof(Response<string>), 200)]
 		[ProducesResponseType(typeof(Response<object>), 400)]
 		[ProducesResponseType(typeof(Response<object>), 401)]
@@ -247,5 +276,94 @@ namespace ElAnis.API.Controllers
 			var response = await _adminService.ActivateServiceProviderAsync(id, User);
 			return StatusCode((int)response.StatusCode, response);
 		}
-	}
+
+
+        /// <summary>
+        /// Get all users with filtering and pagination
+        /// </summary>
+        [HttpGet("users")]
+        [ProducesResponseType(typeof(Response<PaginatedResult<UserManagementDto>>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> GetUsers([FromQuery] GetUsersRequest request)
+        {
+            if (request.Page < 1) request.Page = 1;
+            if (request.PageSize < 1 || request.PageSize > 100) request.PageSize = 10;
+
+            var response = await _adminService.GetUsersAsync(request);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Suspend a user account
+        /// </summary>
+        [HttpPost("users/{userId}/suspend")]
+        [ProducesResponseType(typeof(Response<string>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 404)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> SuspendUser(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid user ID"));
+
+            var response = await _adminService.SuspendUserAsync(userId);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Activate a suspended user account
+        /// </summary>
+        [HttpPost("users/{userId}/activate")]
+        [ProducesResponseType(typeof(Response<string>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 400)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 404)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> ActivateUser(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(_responseHandler.BadRequest<object>("Invalid user ID"));
+
+            var response = await _adminService.ActivateUserAsync(userId);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Get recent bookings
+        /// </summary>
+        [HttpGet("bookings/recent")]
+        [ProducesResponseType(typeof(Response<List<RecentBookingDto>>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> GetRecentBookings([FromQuery] int limit = 10)
+        {
+            if (limit < 1 || limit > 100) limit = 10;
+
+            var response = await _adminService.GetRecentBookingsAsync(limit);
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Get all payment transactions with total revenue
+        /// </summary>
+        [HttpGet("payments")]
+        [ProducesResponseType(typeof(Response<PaymentSummaryResponse>), 200)]
+        [ProducesResponseType(typeof(Response<object>), 401)]
+        [ProducesResponseType(typeof(Response<object>), 403)]
+        [ProducesResponseType(typeof(Response<object>), 500)]
+        public async Task<IActionResult> GetPaymentTransactions()
+        {
+            var response = await _adminService.GetPaymentTransactionsAsync();
+            return StatusCode((int)response.StatusCode, response);
+        }
+
+
+    }
 }

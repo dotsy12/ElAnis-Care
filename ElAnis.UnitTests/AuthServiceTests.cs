@@ -18,6 +18,9 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System.Net;
 using Xunit;
+using ElAnis.DataAccess.Services.FileUpload;
+
+
 
 namespace ElAnis.Tests.Services
 {
@@ -34,6 +37,8 @@ namespace ElAnis.Tests.Services
         private readonly Mock<IGenericRepository<UserRefreshToken>> _refreshTokenRepositoryMock;
         private readonly ResponseHandler _responseHandler;
         private readonly AuthService _authService;
+        private readonly Mock<ICloudinaryService> _cloudinaryServiceMock; // ✅ أضف هذا
+
 
         public AuthServiceTests()
         {
@@ -47,6 +52,8 @@ namespace ElAnis.Tests.Services
             _applicationRepositoryMock = new Mock<IServiceProviderApplicationRepository>();
          
             _refreshTokenRepositoryMock = new Mock<IGenericRepository<UserRefreshToken>>();
+            _cloudinaryServiceMock = new Mock<ICloudinaryService>(); // ✅ أنشئ الـ mock
+
             _responseHandler = new ResponseHandler();
 
             // Setup UnitOfWork mocks
@@ -62,7 +69,8 @@ namespace ElAnis.Tests.Services
                 _otpServiceMock.Object,
                 _responseHandler,
                 _tokenStoreServiceMock.Object,
-                _loggerMock.Object
+                _loggerMock.Object,
+                 _cloudinaryServiceMock.Object
             );
         }
 

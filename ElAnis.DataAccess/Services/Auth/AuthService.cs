@@ -3,6 +3,8 @@ using ElAnis.DataAccess.Services.Email;
 using ElAnis.DataAccess.Services.OTP;
 using ElAnis.DataAccess.Services.Token;
 using ElAnis.Entities.DTO.Account.Auth.Login;
+
+
 using ElAnis.Entities.DTO.Account.Auth.Register;
 using ElAnis.Entities.DTO.Account.Auth.ResetPassword;
 using ElAnis.Entities.Models;
@@ -17,6 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 using LoginRequest = ElAnis.Entities.DTO.Account.Auth.Login.LoginRequest;
 using ResetPasswordRequest = ElAnis.Entities.DTO.Account.Auth.ResetPassword.ResetPasswordRequest;
 using RefreshTokenResponse = ElAnis.Entities.DTO.Account.Auth.RefreshTokenResponse;
+using ElAnis.DataAccess.Services.FileUpload;
 
 namespace ElAnis.DataAccess.Services.Auth
 {
@@ -29,7 +32,7 @@ namespace ElAnis.DataAccess.Services.Auth
         private readonly ResponseHandler _responseHandler;
         private readonly ITokenStoreService _tokenStoreService;
         private readonly ILogger<AuthService> _logger;
-
+        private readonly ICloudinaryService _cloudinaryService;
         public AuthService(
             UserManager<User> userManager,
             IUnitOfWork unitOfWork,
@@ -37,7 +40,9 @@ namespace ElAnis.DataAccess.Services.Auth
             IOTPService otpService,
             ResponseHandler responseHandler,
             ITokenStoreService tokenStoreService,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger, ICloudinaryService cloudinaryService)
+          
+
         {
             _userManager = userManager;
             _unitOfWork = unitOfWork;
@@ -46,6 +51,8 @@ namespace ElAnis.DataAccess.Services.Auth
             _responseHandler = responseHandler;
             _tokenStoreService = tokenStoreService;
             _logger = logger;
+            _cloudinaryService= cloudinaryService;
+
         }
 
         public async Task<Response<LoginResponse>> LoginAsync(LoginRequest loginRequest)
@@ -356,13 +363,37 @@ namespace ElAnis.DataAccess.Services.Auth
             await _unitOfWork.BeginTransactionAsync();
             try
             {
+                // -----------------------------------------
+                // ✅ Upload Profile Picture using Cloudinary
+                // -----------------------------------------
+                string? profilePictureUrl = null;
+                string? profilePicturePublicId = null;
+
+                if (registerRequest.ProfilePicture != null)
+                {
+                    var uploadResult = await _cloudinaryService.UploadImageAsync(
+                        registerRequest.ProfilePicture,
+                        "elanis/users"
+                    );
+
+                    if (uploadResult != null)
+                    {
+                        profilePictureUrl = uploadResult.Url;
+                        profilePicturePublicId = uploadResult.PublicId;
+                    }
+                }
+
                 var user = new User
                 {
                     UserName = registerRequest.Email,
                     Email = registerRequest.Email,
                     PhoneNumber = registerRequest.PhoneNumber,
                     FirstName = registerRequest.FirstName ?? "",
-                    LastName = registerRequest.LastName ?? ""
+                    LastName = registerRequest.LastName ?? "",
+
+                    // ✅ New fields:
+                    ProfilePicture = profilePictureUrl,
+                    ProfilePicturePublicId = profilePicturePublicId
                 };
 
                 var createUserResult = await _userManager.CreateAsync(user, registerRequest.Password);
@@ -379,8 +410,6 @@ namespace ElAnis.DataAccess.Services.Auth
                 await _userManager.AddToRoleAsync(user, "USER");
                 _logger.LogInformation("User created and role 'USER' assigned. ID: {UserId}", user.Id);
 
-           
-
                 var tokens = await _tokenStoreService.GenerateAndStoreTokensAsync(user.Id, user);
                 var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
 
@@ -396,7 +425,10 @@ namespace ElAnis.DataAccess.Services.Auth
                     PhoneNumber = registerRequest.PhoneNumber,
                     Role = "USER",
                     AccessToken = tokens.AccessToken,
-                    RefreshToken = tokens.RefreshToken
+                    RefreshToken = tokens.RefreshToken,
+
+                    // Return URLs to the client as well
+                    ProfilePicture = profilePictureUrl
                 };
 
                 return _responseHandler.Created(response, "User registered successfully. Please verify your email.");
@@ -408,12 +440,13 @@ namespace ElAnis.DataAccess.Services.Auth
                 return _responseHandler.BadRequest<RegisterResponse>("An error occurred during registration.");
             }
         }
-
         public async Task<Response<ServiceProviderApplicationResponse>> RegisterServiceProviderAsync(RegisterServiceProviderRequest request)
         {
             _logger.LogInformation("RegisterServiceProviderAsync started for Email: {Email}", request.Email);
 
-            // ✅ Step 1: Check if email or phone already exists
+            // ============================
+            // STEP 1: VALIDATION
+            // ============================
             if (await _unitOfWork.Users.IsEmailExistsAsync(request.Email))
                 return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Email is already registered.");
 
@@ -421,11 +454,16 @@ namespace ElAnis.DataAccess.Services.Auth
                 await _unitOfWork.Users.IsPhoneExistsAsync(request.PhoneNumber))
                 return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("Phone number is already registered.");
 
+            if (await _unitOfWork.ServiceProviderApplications.AnyAsync(s => s.NationalId == request.NationalId))
+                return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("National ID already exists.");
+
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                // ✅ Step 2: Create Identity User
+                // ============================
+                // STEP 2: Create Identity User
+                // ============================
                 var user = new User
                 {
                     UserName = request.Email,
@@ -442,38 +480,58 @@ namespace ElAnis.DataAccess.Services.Auth
                 {
                     var errors = string.Join(", ", createUserResult.Errors.Select(e => e.Description));
                     await _unitOfWork.RollbackAsync();
-                    _logger.LogWarning("Failed to create user for Email: {Email} - Errors: {Errors}", request.Email, errors);
                     return _responseHandler.BadRequest<ServiceProviderApplicationResponse>(errors);
                 }
 
-                // ✅ Step 3: Assign default role
                 await _userManager.AddToRoleAsync(user, "PROVIDER");
 
+                // ============================
+                // STEP 3: Upload Files (Cloudinary)
+                // ============================
+                string? idDocumentUrl = null;
+                string? idDocumentPublicId = null;
 
-                // ✅ Step 4: Handle File Uploads
-                string? idDocumentPath = null;
-                string? certificatePath = null;
-                string? cvPath = null;
+                string? certificateUrl = null;
+                string? certificatePublicId = null;
 
+                string? cvUrl = null;
+                string? cvPublicId = null;
+
+                // Upload ID Document
                 if (request.IdDocument != null)
                 {
-                    // idDocumentPath = await _fileUploadService.UploadFileAsync(request.IdDocument, "documents");
-                }
-                    if (request.Certificate != null)
-                    { 
-                 // certificatePath = await _fileUploadService.UploadFileAsync(request.Certificate, "certificates");
-                        }
-                 if (request.CVPath != null)
-                   {
-                     //cvPath = await _fileUploadService.UploadFileAsync(request.CVPath, "cv");
-                   }
-                if (await _unitOfWork.ServiceProviderApplications.AnyAsync(s => s.NationalId == request.NationalId))
-                {
-                    await _unitOfWork.RollbackAsync();
-                    return _responseHandler.BadRequest<ServiceProviderApplicationResponse>("National ID already exists.");
+                    var upload = await _cloudinaryService.UploadDocumentAsync(request.IdDocument, "elanis/providers/id");
+                    if (upload != null)
+                    {
+                        idDocumentUrl = upload.Url;
+                        idDocumentPublicId = upload.PublicId;
+                    }
                 }
 
-                // ✅ Step 5: Create Service Provider Application
+                // Upload Certificate
+                if (request.Certificate != null)
+                {
+                    var upload = await _cloudinaryService.UploadDocumentAsync(request.Certificate, "elanis/providers/certificates");
+                    if (upload != null)
+                    {
+                        certificateUrl = upload.Url;
+                        certificatePublicId = upload.PublicId;
+                    }
+                }
+
+                // Upload CV
+                if (request.CV != null)
+                {
+                    var upload = await _cloudinaryService.UploadDocumentAsync(request.CV, "elanis/providers/cv");
+                    if (upload != null)
+                    {
+                        cvUrl = upload.Url;
+                        cvPublicId = upload.PublicId;
+                    }
+                }
+                // ============================
+                // STEP 4: Create Provider Application
+                // ============================
                 var application = new ServiceProviderApplication
                 {
                     UserId = user.Id,
@@ -486,34 +544,46 @@ namespace ElAnis.DataAccess.Services.Auth
                     NationalId = request.NationalId,
                     Experience = request.Experience,
                     HourlyRate = request.HourlyRate,
-                    IdDocumentPath = idDocumentPath ?? string.Empty,
-                    CertificatePath = certificatePath ?? string.Empty,
-                    CVPath = cvPath ?? string.Empty,
                     SelectedCategories = request.SelectedCategoryIds,
-                    Status = ServiceProviderApplicationStatus.Pending
+                    Status = ServiceProviderApplicationStatus.Pending,
+
+                    // File URLs
+                    IdDocumentPath = idDocumentUrl ?? "",
+                    IdDocumentPublicId = idDocumentPublicId ?? "",
+
+                    CertificatePath = certificateUrl ?? "",
+                    CertificatePublicId = certificatePublicId ?? "",
+
+                    CVPath = cvUrl ?? "",
+                    CVPublicId = cvPublicId ?? ""
                 };
 
                 await _unitOfWork.ServiceProviderApplications.AddAsync(application);
 
-                // ✅ Step 6: Send OTP for email verification
+                // ============================
+                // STEP 5: Send OTP Email
+                // ============================
                 var otp = await _otpService.GenerateAndStoreOtpAsync(user.Id);
                 await _emailService.SendOtpEmailAsync(user, otp);
 
-                // ✅ Step 7: Commit Transaction
+                // ============================
+                // STEP 6: Commit Transaction
+                // ============================
                 await _unitOfWork.CommitAsync();
 
-                // ✅ Step 8: Return success response
+                // ============================
+                // STEP 7: Response
+                // ============================
                 var response = new ServiceProviderApplicationResponse
                 {
                     ApplicationId = application.Id,
                     UserId = user.Id,
-                    Email = user.Email ?? string.Empty,
-                    Message = "Service provider application submitted successfully. Please verify your email and wait for admin approval.",
+                    Email = user.Email ?? "",
                     Status = application.Status,
-                    CreatedAt = application.CreatedAt
+                    CreatedAt = application.CreatedAt,
+                    Message = "Service provider application submitted successfully. Please verify your email."
                 };
 
-                _logger.LogInformation("RegisterServiceProviderAsync succeeded for Email: {Email}", request.Email);
                 return _responseHandler.Created(response, "Application submitted successfully.");
             }
             catch (Exception ex)

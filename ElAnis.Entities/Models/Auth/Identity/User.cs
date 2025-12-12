@@ -12,8 +12,10 @@ namespace ElAnis.Entities.Models.Auth.Identity
 		public DateTime? DateOfBirth { get; set; }
 		public string? ProfilePicture { get; set; }
 
-		// Account Status
-		public bool IsActive { get; set; } = true;
+        public string? ProfilePicturePublicId { get; set; } // ✅ أضف هذا
+
+        // Account Status
+        public bool IsActive { get; set; } = true;
 		public bool IsDeleted { get; set; } = false;
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 		public DateTime? LastLoginDate { get; set; }

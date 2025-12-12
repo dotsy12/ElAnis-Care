@@ -10,5 +10,7 @@ namespace ElAnis.DataAccess.Services.ServiceRequest
         Task<Response<List<ServiceRequestResponse>>> GetUserRequestsAsync(ClaimsPrincipal userClaims);
         Task<Response<List<ServiceRequestResponse>>> GetProviderRequestsAsync(Guid providerId);
         Task<Response<ServiceRequestResponse>> RespondToRequestAsync(Guid requestId, ProviderResponseDto response, ClaimsPrincipal userClaims);
+        Task<Response<ServiceRequestResponse>> StartRequestAsync(Guid requestId, ClaimsPrincipal userClaims);
+        Task<Response<ServiceRequestResponse>> CompleteRequestAsync(Guid requestId, ClaimsPrincipal userClaims);
     }
 }

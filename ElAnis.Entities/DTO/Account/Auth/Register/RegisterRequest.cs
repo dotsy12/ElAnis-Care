@@ -1,4 +1,6 @@
-﻿namespace ElAnis.Entities.DTO.Account.Auth.Register
+﻿using Microsoft.AspNetCore.Http;
+
+namespace ElAnis.Entities.DTO.Account.Auth.Register
 {
     public class RegisterRequest
     {
@@ -9,6 +11,8 @@
 		public string FirstName { get; set; } = string.Empty;
 		public string LastName { get; set; } = string.Empty;
 		public string? Address { get; set; }
-		public DateTime? DateOfBirth { get; set; }
+        public IFormFile? ProfilePicture { get; set; }
+
+        public DateTime? DateOfBirth { get; set; }
 	}
 }

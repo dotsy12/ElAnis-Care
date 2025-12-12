@@ -1,6 +1,7 @@
 ﻿using ElAnis.API.Extensions;
 using ElAnis.DataAccess.ApplicationContext;
 using ElAnis.DataAccess.Extensions;
+using ElAnis.DataAccess.Hubs;
 using ElAnis.DataAccess.Seeder;
 using ElAnis.DataAccess.Services.Payment;
 using ElAnis.Entities.Models.Auth.Identity;
@@ -42,13 +43,20 @@ namespace ElAnisPlatform
 
             // IOptions Pattern
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
-            builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
+           
+            builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings"));
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection("Authorization:Google"));
 
             // Stripe Configuration
             builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 
+            builder.Services.AddLogging(config =>
+            {
+                config.AddConsole();
+                config.AddDebug();
+            });
             // Payment Service
             builder.Services.AddScoped<IPaymentService, PaymentService>();
 
@@ -107,6 +115,8 @@ namespace ElAnisPlatform
             app.UseAuthorization();
 
             app.MapControllers();
+            // SignalR Hub Mapping
+            app.MapHub<ChatHub>("/chatHub");
             app.Run();
         }
     }

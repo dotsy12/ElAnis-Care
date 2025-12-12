@@ -23,6 +23,9 @@ using ElAnis.DataAccess.Services.ServiceProvider;
 using ElAnis.DataAccess.Services.ServicePricing;
 using ElAnis.DataAccess.Services.ServiceRequest;
 using ElAnis.DataAccess.Services.Payment;
+using ElAnis.DataAccess.Services.Review;
+using ElAnis.DataAccess.Services.FileUpload;
+using ElAnis.DataAccess.Services.Chat;
 
 
 namespace ElAnis.DataAccess.Extensions
@@ -50,6 +53,7 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IServiceProviderCategoryRepository, ServiceProviderCategoryRepository>();
             services.AddScoped<IServiceRequestRepository, ServiceRequestRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IReviewRepository, ReviewRepository>();
 
             return services;
         }
@@ -70,6 +74,11 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IImageUploadService, CloudinaryImageUploadService>();
             services.AddScoped<ITokenStoreService, TokenStoreService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<ICloudinaryService, CloudinaryService>();
+            // SignalR + Chat Service
+            services.AddSignalR();
+            services.AddScoped<IChatService, ChatService>();
+
 
             // Business Logic Services
             services.AddScoped<IAuthService, AuthService>();
@@ -79,6 +88,7 @@ namespace ElAnis.DataAccess.Extensions
             services.AddScoped<IServiceProviderService, ServiceProviderService>();
             services.AddScoped<IServicePricingService, ServicePricingService>();
             services.AddScoped<IServiceRequestService, ServiceRequestService>();
+            services.AddScoped<IReviewService, ReviewService>();
             return services;
         }
 

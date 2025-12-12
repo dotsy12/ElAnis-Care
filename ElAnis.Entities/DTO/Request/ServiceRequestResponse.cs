@@ -20,6 +20,12 @@ namespace ElAnis.Entities.DTO.ServiceRequest
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? AcceptedAt { get; set; }
-        public bool CanPay { get; set; }  // Status == Accepted && Payment == null
+        public DateTime? StartedAt { get; set; }      // ✅ Add this
+        public DateTime? CompletedAt { get; set; }    // ✅ Add this
+        public bool CanPay { get; set; }
+        public bool CanStart { get; set; }            // ✅ Add this
+        public bool CanComplete { get; set; }         // ✅ Add this
+
+
     }
 }

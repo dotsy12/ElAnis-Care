@@ -19,7 +19,7 @@ namespace ElAnis.API.Controllers
     /// - الـ Webhook endpoint لازم يكون public (بدون Authorization)
     /// - لازم تسجل الـ Webhook URL في Stripe Dashboard
     /// </summary>
-    [Route("api/[controller]")]
+    [Route("api/payments")]
     [ApiController]
     public class PaymentsController : ControllerBase
     {
